@@ -45,7 +45,7 @@ class AppHolder:
         MainApp = self.module_watcher.get("gui.SionnaRtGui")
         drjit_cleanup = self.module_watcher.get("drjit_util.drjit_cleanup")
 
-        del self.app
+        self.app = None
         drjit_cleanup()
         self.config_watcher = FilesWatcher((cfg.config_path,))
         self.app = MainApp(cfg)
@@ -90,9 +90,7 @@ class AppHolder:
                 new_config_path = old_config_path
 
         if new_config_path is not None:
-            load_fn = self.module_watcher.get(
-                "snapshot.load_snapshot" if is_snapshot else "snapshot.load_config"
-            )
+            load_fn = self.module_watcher.get("config.load_config")
 
             try:
                 new_config = load_fn(new_config_path, data_path=self.data_path)
@@ -120,7 +118,8 @@ class AppHolder:
 
     def tick(self) -> None:
         self.maybe_reload()
-        self.app.tick()
+        if self.app is not None:
+            self.app.tick()
 
     def show(self):
         ps.show()

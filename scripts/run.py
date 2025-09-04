@@ -8,7 +8,8 @@ add_project_root_to_path()
 
 from sionna import rt
 import sionna_rt_gui as gui
-from sionna_rt_gui import AppHolder, GuiConfig, DEFAULT_CONFIG_PATH
+from sionna_rt_gui import AppHolder, DEFAULT_CONFIG_PATH
+from sionna_rt_gui.config import load_config
 import numpy as np
 import polyscope as ps
 
@@ -35,9 +36,8 @@ def main():
     cfg_overrides = {
         "use_live_reload": args.watch,
     }
-    # TODO
-    cfg = GuiConfig(config_path=args.config)
-    data_path = ""
+    data_path = None
+    cfg = load_config(args.config, data_path=data_path)
 
     # --- Initialization
     app = AppHolder(cfg, data_path=data_path, overrides=cfg_overrides)
