@@ -79,7 +79,7 @@ class AppHolder:
 
         if snapshot_load_requested:
             # --- Snapshot load requested by the user
-            new_config_path = self.app.scene_filename
+            new_config_path = self.app.cfg.scene_filename
             is_snapshot = True
 
         elif not is_snapshot and self.config_watcher.change_detected():

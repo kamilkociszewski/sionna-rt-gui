@@ -15,8 +15,7 @@ class GuiConfig:
     background_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
     default_resolution: tuple[int, int] = (1920, 1080)
 
-    # TODO: remove these if not relevant
-    snapshot_filename: str | None = None
+    scene_filename: str | None = None
     loaded_from_snapshot: bool = False
 
 

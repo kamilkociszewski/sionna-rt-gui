@@ -6,13 +6,19 @@ import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
 
-from . import PROJECT_DIR
 from .config import GuiConfig
+from .sionna_utils import get_built_in_scenes
 
 
 class SionnaRtGui:
     def __init__(self, cfg: GuiConfig):
         self.cfg = cfg
+
+        # --- Sionna RT
+        built_in_scenes = get_built_in_scenes()
+        self.built_in_scene_names = ["None"] + list(built_in_scenes.keys())
+        self.built_in_scene_paths = [None] + list(built_in_scenes.values())
+        self.current_scene_idx: int = 0
 
         # --- Inputs state
         self.last_mouse_pos: mi.ScalarVector2f | None = None
@@ -55,13 +61,11 @@ class SionnaRtGui:
         # ps.set_automatically_compute_scene_extents(False)
         # ps.set_bounding_box((0, 0, 0), (1, 1, 1))
 
-        # TODO: get scene path from config
-        self.cfg.scene_filename = os.path.join(
-            PROJECT_DIR,
-            "..",
-            "sionna-rt/src/sionna/rt/scenes/box_two_screens/box_two_screens.xml",
+        # Load scene
+        # TODO: preserve currently-selected scene across reloads
+        self.load_scene(
+            self.cfg.scene_filename or built_in_scenes["simple_street_canyon_with_cars"]
         )
-        self.load_scene(self.cfg.scene_filename)
 
     def setup_ps_structures(self):
         # Clear Polyscope state
@@ -74,6 +78,7 @@ class SionnaRtGui:
         }
 
     def load_scene(self, scene_path: str):
+        self.setup_ps_structures()
         self.scene = rt.load_scene(scene_path)
 
         # Add the meshes to Polyscope
@@ -147,6 +152,21 @@ class SionnaRtGui:
             ps.unshow()
 
     def gui(self):
+        if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
+            psim.Text(f"Current scene:\n{self.cfg.scene_filename}")
+
+            # Quick pick from built-in scenes
+            changed, combo_i = psim.Combo(
+                "##scene_picker",
+                self.current_scene_idx,
+                self.built_in_scene_names,
+            )
+            if changed:
+                new_scene = self.built_in_scene_paths[combo_i]
+                if new_scene is not None:
+                    self.load_scene(new_scene)
+
+            psim.Spacing()
 
         if psim.CollapsingHeader("Radio devices", psim.ImGuiTreeNodeFlags_DefaultOpen):
             clicked = psim.Button("Clear all radio devices")
