@@ -13,6 +13,7 @@ from .sionna_utils import (
     add_radio_device_to_polyscope,
     add_scene_to_polyscope,
     get_built_in_scenes,
+    add_paths_to_polyscope,
 )
 
 
@@ -36,7 +37,7 @@ class SionnaRtGui:
         )
 
         # Paths results
-        self.paths_buffer: rt.PathsBuffer | None = None
+        self.paths: rt.Paths | None = None
 
         # --- Inputs state
         self.last_mouse_pos: mi.ScalarVector2f | None = None
@@ -96,13 +97,18 @@ class SionnaRtGui:
                 [13, 13, 51 + 2.5],
                 [-34, -10, 22 + 2.5],
             ]:
-                self.add_radio_device(pos, True, allow_auto_update=False)
+                self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
+
+                shifted = [pos[0] + 5, pos[1] + 15, pos[2] - 10]
+                self.add_radio_device(
+                    shifted, is_transmitter=False, allow_auto_update=False
+                )
 
         if False:
             self.set_radio_map(self.compute_radio_map(), show=True)
-            add_radio_map_to_polyscope(
-                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
-            )
+        if False:
+            self.paths = self.compute_paths()
+            add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
@@ -117,6 +123,7 @@ class SionnaRtGui:
             "scene": ps.create_group("Scene meshes"),
             "rd": ps.create_group("Radio devices"),
             "radio_maps": ps.create_group("Radio maps"),
+            "paths": ps.create_group("Paths"),
         }
 
     def load_scene(self, scene_path: str, recenter_camera: bool = True):
@@ -194,7 +201,10 @@ class SionnaRtGui:
                 "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
             )
 
-    def compute_radio_map(self) -> rt.RadioMap:
+    def compute_radio_map(self) -> rt.RadioMap | None:
+        if not self.scene._transmitters:
+            return None
+
         solver = rt.RadioMapSolver()
         # TODO: expose and pass down all the relevant parameters
         samples_per_tx = self.cfg.radio_map.samples_per_it // len(
@@ -215,6 +225,26 @@ class SionnaRtGui:
             specular_reflection=self.cfg.radio_map.specular_reflection,
             diffuse_reflection=self.cfg.radio_map.diffuse_reflection,
             refraction=self.cfg.radio_map.refraction,
+        )
+
+    # ------------------------
+
+    def compute_paths(self) -> rt.Paths | None:
+        if not self.scene._transmitters or not self.scene._receivers:
+            return None
+
+        solver = rt.PathSolver()
+        return solver(
+            self.scene,
+            max_depth=self.cfg.paths.max_depth,
+            max_num_paths_per_src=self.cfg.paths.max_num_paths_per_src,
+            samples_per_src=self.cfg.paths.samples_per_src,
+            synthetic_array=self.cfg.paths.synthetic_array,
+            los=self.cfg.paths.los,
+            specular_reflection=self.cfg.paths.specular_reflection,
+            diffuse_reflection=self.cfg.paths.diffuse_reflection,
+            refraction=self.cfg.paths.refraction,
+            seed=self.frame_i,
         )
 
     # ------------------------
@@ -244,6 +274,9 @@ class SionnaRtGui:
 
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
             self.set_radio_map(self.compute_radio_map(), show=True)
+        if allow_auto_update and self.cfg.paths.auto_update:
+            self.paths = self.compute_paths()
+            add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
     def clear_radio_devices(self):
         self.scene._transmitters.clear()
@@ -253,12 +286,19 @@ class SionnaRtGui:
 
         if self.cfg.radio_map.auto_update:
             self.clear_radio_map()
+        if self.cfg.paths.auto_update:
+            self.clear_paths()
 
     def clear_radio_map(self):
         self.radio_map = None
         self.rm_accumulated_samples = 0
         if ps.has_surface_mesh("radio_map"):
             ps.get_surface_mesh("radio_map").remove()
+
+    def clear_paths(self):
+        self.paths = None
+        if ps.has_curve_network("paths"):
+            ps.get_curve_network("paths").remove()
 
     # ------------------------
 
@@ -308,6 +348,8 @@ class SionnaRtGui:
 
         if psim.CollapsingHeader("Radio devices", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
+
+            # TODO: legend (= color picker) for each radio device type
 
             clicked = psim.Button("Clear all radio devices")
             if clicked:
@@ -359,37 +401,37 @@ class SionnaRtGui:
             needs_update |= changed
 
             changed, self.cfg.radio_map.max_depth = psim.SliderInt(
-                "Max depth",
+                "Max depth##rm",
                 self.cfg.radio_map.max_depth,
                 v_min=1,
                 v_max=10,
             )
             needs_update |= changed
 
+            # TODO: why is the width ignored?
             psim.SetNextItemWidth(200)
             changed, self.cfg.radio_map.los = psim.Checkbox(
-                "Line of sight", self.cfg.radio_map.los
+                "Line of sight##rm", self.cfg.radio_map.los
             )
             needs_update |= changed
 
-            # TODO: why is the width ignored?
             psim.SameLine()
             psim.SetNextItemWidth(200)
             changed, self.cfg.radio_map.specular_reflection = psim.Checkbox(
-                "Specular reflection", self.cfg.radio_map.specular_reflection
+                "Specular reflection##rm", self.cfg.radio_map.specular_reflection
             )
             needs_update |= changed
 
             psim.SetNextItemWidth(200)
             changed, self.cfg.radio_map.diffuse_reflection = psim.Checkbox(
-                "Diffuse reflection", self.cfg.radio_map.diffuse_reflection
+                "Diffuse reflection##rm", self.cfg.radio_map.diffuse_reflection
             )
             needs_update |= changed
 
             psim.SameLine()
             psim.SetNextItemWidth(200)
             changed, self.cfg.radio_map.refraction = psim.Checkbox(
-                "Refraction", self.cfg.radio_map.refraction
+                "Refraction##rm", self.cfg.radio_map.refraction
             )
             needs_update |= changed
 
@@ -457,16 +499,70 @@ class SionnaRtGui:
 
         if psim.CollapsingHeader("Paths", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
+            needs_update = False
 
-            _, self.cfg.auto_update_paths = psim.Checkbox(
-                "Automatic update##paths", self.cfg.auto_update_paths
+            _, self.cfg.paths.auto_update = psim.Checkbox(
+                "Automatic update##paths", self.cfg.paths.auto_update
             )
 
             clicked = psim.Button("Compute paths")
             if clicked:
-                print("Should compute paths")
+                self.paths = self.compute_paths()
+                add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
-            # TODO: simulation parameters (diffuse, specular, sample count, height, etc)
+            changed, self.cfg.paths.max_depth = psim.SliderInt(
+                "Max depth##paths",
+                self.cfg.paths.max_depth,
+                v_min=1,
+                v_max=10,
+            )
+            needs_update |= changed
+
+            # TODO:
+            # max_num_paths_per_src
+            # samples_per_src
+
+            psim.SetNextItemWidth(200)
+            changed, self.cfg.paths.synthetic_array = psim.Checkbox(
+                "Synthetic array##paths", self.cfg.paths.synthetic_array
+            )
+            needs_update |= changed
+
+            psim.SetNextItemWidth(200)
+            changed, self.cfg.paths.los = psim.Checkbox(
+                "Line of sight##paths", self.cfg.paths.los
+            )
+            needs_update |= changed
+
+            # TODO: why is the width ignored?
+            psim.SameLine()
+            psim.SetNextItemWidth(200)
+            changed, self.cfg.paths.specular_reflection = psim.Checkbox(
+                "Specular reflection##paths", self.cfg.paths.specular_reflection
+            )
+            needs_update |= changed
+
+            psim.SetNextItemWidth(200)
+            changed, self.cfg.paths.diffuse_reflection = psim.Checkbox(
+                "Diffuse reflection##paths", self.cfg.paths.diffuse_reflection
+            )
+            needs_update |= changed
+
+            psim.SameLine()
+            psim.SetNextItemWidth(200)
+            changed, self.cfg.paths.refraction = psim.Checkbox(
+                "Refraction##paths", self.cfg.paths.refraction
+            )
+            needs_update |= changed
+
+            # TODO: rendering parameters (radius, transparency, etc)
+            # TODO: show & configure segment color per type of interaction
+            needs_visual_update = False
+
+            if self.cfg.paths.auto_update and needs_update:
+                self.paths = self.compute_paths()
+            if needs_update or needs_visual_update:
+                add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
             psim.Spacing()
 

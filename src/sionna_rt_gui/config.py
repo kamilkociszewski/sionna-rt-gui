@@ -42,6 +42,21 @@ class RadioMapConfig:
 
 
 @dataclass(kw_only=True)
+class PathsConfig:
+    auto_update: bool = True
+    accumulate_max_samples_per_src: int = int(1e9)
+
+    max_depth: int = 5
+    max_num_paths_per_src: int = 1000000
+    samples_per_src: int = 1000000
+    synthetic_array: bool = True
+    los: bool = True
+    specular_reflection: bool = True
+    diffuse_reflection: bool = False
+    refraction: bool = True
+
+
+@dataclass(kw_only=True)
 class GuiConfig:
     title: str = "Sionna RT"
     config_path: str
@@ -58,7 +73,7 @@ class GuiConfig:
     radio_map: RadioMapConfig = field(default_factory=lambda: RadioMapConfig())
 
     # Paths
-    auto_update_paths: bool = True
+    paths: PathsConfig = field(default_factory=lambda: PathsConfig())
 
 
 def load_config(config_path: str, data_path: str | None) -> GuiConfig:

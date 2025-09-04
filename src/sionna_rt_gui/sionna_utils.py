@@ -3,7 +3,7 @@ import polyscope as ps
 from sionna import rt
 from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 
-from .config import RadioMapConfig
+from .config import RadioMapConfig, PathsConfig
 
 
 ITU_TO_PS_MATERIAL = {
@@ -80,10 +80,13 @@ def add_radio_device_to_polyscope(
 
 def add_radio_map_to_polyscope(
     name: str,
-    radio_map: rt.RadioMap,
+    radio_map: rt.RadioMap | None,
     ps_groups: dict[str, ps.Group],
     cfg: RadioMapConfig,
 ):
+    if radio_map is None:
+        return
+
     if isinstance(radio_map, rt.PlanarRadioMap):
         # TODO: do something faster if the radio map is already registered
         # Create rectangle mesh to display the planar radio map
@@ -133,3 +136,39 @@ def add_radio_map_to_polyscope(
         raise NotImplementedError("Mesh radio maps are not supported yet")
     else:
         raise ValueError(f"Unsupported radio map type: {type(radio_map)}")
+
+
+def add_paths_to_polyscope(
+    paths: rt.Paths | None, ps_groups: dict[str, ps.Group], cfg: PathsConfig
+):
+    if paths is None:
+        return
+
+    result = rt.render.paths_to_segments(paths)
+    if not result:
+        return
+
+    starts, ends, colors = result
+    vertices = np.stack([starts, ends], axis=1).reshape(-1, 3)
+
+    # TODO: appropriate colors for each path type
+    # TODO: path transparency based on gain at each segment?
+    struct = ps.register_curve_network(
+        "paths",
+        vertices,
+        edges="segments",
+        enabled=True,
+        # color=(0.7, 0.7, 0.7),
+        # TODO: make radius adaptive & configurable
+        radius=0.001,
+    )
+    struct.add_color_quantity(
+        "path_colors",
+        np.array(colors),
+        defined_on="edges",
+        # param_name="uv",
+        enabled=True,
+        # image_origin="lower_left",
+    )
+    struct.set_transparency(0.6)
+    struct.add_to_group(ps_groups["paths"])
