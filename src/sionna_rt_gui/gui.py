@@ -29,6 +29,7 @@ class SionnaRtGui:
 
         # Radio map results
         self.radio_map: rt.RadioMap | None = None
+        self.rm_accumulated_samples: int = 0
         self.rm_color_map_options = [v for v in plt.colormaps() if not v.endswith("_r")]
         self.rm_color_map_index = self.rm_color_map_options.index(
             self.cfg.radio_map.color_map
@@ -45,6 +46,8 @@ class SionnaRtGui:
         self.code_reload_requested: bool = False
 
         # --- Polyscope setup
+        # Can be used to derive e.g. random seeds.
+        self.frame_i: int = 0
         self.build_default_ps_gui: bool = False
         # Pre-init settings
         ps.set_program_name(self.cfg.title)
@@ -95,21 +98,16 @@ class SionnaRtGui:
             ]:
                 self.add_radio_device(pos, True, allow_auto_update=False)
 
-            self.radio_map = self.compute_radio_map()
-
-            # self.radio_map = rt.PlanarRadioMap(self.scene, cell_size=1.0)
-            # sh = tuple(max(1, v) for v in self.radio_map.path_gain.shape)
-            # self.radio_map._pathgain_map = mi.TensorXf(
-            #     np.random.uniform(0, 1, sh).astype(np.float32)
-            # )
+        if False:
+            self.set_radio_map(self.compute_radio_map(), show=True)
             add_radio_map_to_polyscope(
                 "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
             )
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
-        self.radio_map = None
-        self.paths_buffer = None
+        self.clear_radio_map()
+        self.paths = None
 
         # Clear Polyscope state
         ps.remove_all_structures()
@@ -167,15 +165,40 @@ class SionnaRtGui:
     def tick(self):
         # TODO: automatic refinement & accumulation of the radio map, if enabled
         self.process_inputs()
+
+        # Automatic refinement of the radio map
+        if self.radio_map is not None:
+            needs_more = (
+                self.rm_accumulated_samples
+                < self.cfg.radio_map.accumulate_max_samples_per_tx
+            )
+            if needs_more:
+                rm_new = self.compute_radio_map()
+                self.radio_map._pathgain_map += rm_new.path_gain
+                self.rm_accumulated_samples += self.cfg.radio_map.samples_per_tx
+                add_radio_map_to_polyscope(
+                    "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                )
+
         self.gui()
+        self.frame_i += 1
 
     # ------------------------
 
-    def compute_radio_map(self):
+    def set_radio_map(self, radio_map: rt.RadioMap, show: bool = False):
+        self.radio_map = radio_map
+        self.rm_accumulated_samples = 0
+        if show:
+            add_radio_map_to_polyscope(
+                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+            )
+
+    def compute_radio_map(self) -> rt.RadioMap:
         solver = rt.RadioMapSolver()
         # TODO: expose and pass down all the relevant parameters
         return solver(
             self.scene,
+            seed=self.frame_i,
             center=self.cfg.radio_map.center,
             orientation=self.cfg.radio_map.orientation,
             size=self.cfg.radio_map.size,
@@ -216,10 +239,7 @@ class SionnaRtGui:
         )
 
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
-            self.radio_map = self.compute_radio_map()
-            add_radio_map_to_polyscope(
-                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
-            )
+            self.set_radio_map(self.compute_radio_map(), show=True)
 
     def clear_radio_devices(self):
         self.scene._transmitters.clear()
@@ -232,6 +252,7 @@ class SionnaRtGui:
 
     def clear_radio_map(self):
         self.radio_map = None
+        self.rm_accumulated_samples = 0
         if ps.has_surface_mesh("radio_map"):
             ps.get_surface_mesh("radio_map").remove()
 
@@ -301,10 +322,7 @@ class SionnaRtGui:
 
             clicked = psim.Button("Compute radio map")
             if clicked:
-                self.radio_map = self.compute_radio_map()
-                add_radio_map_to_polyscope(
-                    "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
-                )
+                self.set_radio_map(self.compute_radio_map(), show=True)
 
             psim.SameLine()
             _, self.cfg.radio_map.auto_update = psim.Checkbox(
@@ -374,6 +392,16 @@ class SionnaRtGui:
             # -- Radio map display options
             if self.radio_map is not None:
                 psim.Spacing()
+
+                psim.Text("Accumulating samples:")
+                psim.ProgressBar(
+                    min(
+                        self.rm_accumulated_samples
+                        / self.cfg.radio_map.accumulate_max_samples_per_tx,
+                        1.0,
+                    ),
+                )
+
                 struct = ps.get_surface_mesh("radio_map")
                 changed, show_rm = psim.Checkbox("Show radio map", struct.is_enabled())
                 if changed:
@@ -411,7 +439,7 @@ class SionnaRtGui:
                 needs_visual_update = changed_cmap or changed_vmin or changed_vmax
 
             if self.cfg.radio_map.auto_update and needs_update:
-                self.radio_map = self.compute_radio_map()
+                self.set_radio_map(self.compute_radio_map(), show=False)
             if needs_update or needs_visual_update:
                 add_radio_map_to_polyscope(
                     "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map

@@ -11,6 +11,7 @@ from omegaconf import OmegaConf
 @dataclass(kw_only=True)
 class RadioMapConfig:
     auto_update: bool = True
+    accumulate_max_samples_per_tx: int = int(1e9)
 
     # -- Computation
     center: tuple[float, float, float] | None = None
