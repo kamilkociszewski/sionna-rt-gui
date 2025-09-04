@@ -32,9 +32,10 @@ class AppHolder:
             module=sionna_rt_gui, module_path=sionna_rt_gui.SOURCE_DIR
         )
         self.config_watcher: FilesWatcher | None = None
-        self.data_path = data_path
-        self.overrides: dict = overrides or {}
+        self.data_path: str | None = data_path
+        self.overrides: dict[str, Any] = overrides or {}
         self.app = None
+        self.app_failed: bool = False
 
         self.apply_overrides(cfg)
         self.create_app(cfg)
@@ -46,6 +47,7 @@ class AppHolder:
         drjit_cleanup = self.module_watcher.get("drjit_util.drjit_cleanup")
 
         self.app = None
+        self.app_failed = False
         drjit_cleanup()
         self.config_watcher = FilesWatcher((cfg.config_path,))
         self.app = MainApp(cfg)
@@ -118,8 +120,13 @@ class AppHolder:
 
     def tick(self) -> None:
         self.maybe_reload()
-        if self.app is not None:
-            self.app.tick()
+        if (self.app is not None) and not self.app_failed:
+            try:
+                self.app.tick()
+            except Exception as e:
+                self.app_failed = True
+                print(f"[!] Exception thrown in app.tick(): {e}", file=sys.stderr)
+                print(traceback.format_exc(), file=sys.stderr)
 
     def show(self):
         ps.show()
