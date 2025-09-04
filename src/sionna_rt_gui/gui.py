@@ -7,7 +7,7 @@ import polyscope.imgui as psim
 from sionna import rt
 
 from .config import GuiConfig
-from .sionna_utils import get_built_in_scenes
+from .sionna_utils import add_scene_to_polyscope, get_built_in_scenes
 
 
 class SionnaRtGui:
@@ -81,13 +81,15 @@ class SionnaRtGui:
         self.setup_ps_structures()
         self.scene = rt.load_scene(scene_path)
 
-        # Add the meshes to Polyscope
-        # TODO: apply consistent materials (based on radio material)
-        for mesh in self.scene.mi_scene.shapes():
-            vertices = mesh.vertex_positions_buffer().numpy().reshape(-1, 3)
-            faces = mesh.faces_buffer().numpy().reshape(-1, 3)
-            struct = ps.register_surface_mesh(mesh.id(), vertices, faces)
-            struct.add_to_group(self.ps_groups["scene"])
+        self.cfg.scene_filename = scene_path
+        try:
+            self.current_scene_idx = self.built_in_scene_paths.index(
+                self.cfg.scene_filename
+            )
+        except ValueError:
+            pass
+
+        add_scene_to_polyscope(self.scene, self.ps_groups)
 
     def tick(self):
         self.process_inputs()
