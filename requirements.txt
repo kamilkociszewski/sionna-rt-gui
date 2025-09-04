@@ -1,3 +1,6 @@
+black
 numpy
+omegaconf
 sionna-rt
 polyscope
+pylint
