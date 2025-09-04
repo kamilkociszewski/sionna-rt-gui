@@ -1,8 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import yaml
 
 from omegaconf import OmegaConf
+
+
+@dataclass(kw_only=True)
+class RadioMapConfig:
+    auto_update: bool = True
+    color_map: str = "viridis"
+    vmin: float = -150
+    vmax: float = -50
 
 
 @dataclass(kw_only=True)
@@ -19,7 +27,7 @@ class GuiConfig:
     loaded_from_snapshot: bool = False
 
     # Radio map
-    auto_update_radio_map: bool = True
+    radio_map: RadioMapConfig = field(default_factory=lambda: RadioMapConfig())
 
     # Paths
     auto_update_paths: bool = True

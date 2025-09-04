@@ -3,6 +3,8 @@ import polyscope as ps
 from sionna import rt
 from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 
+from .config import RadioMapConfig
+
 
 def get_built_in_scenes() -> dict[str, str]:
     result = {}
@@ -53,7 +55,10 @@ def add_radio_device_to_polyscope(
 
 
 def add_radio_map_to_polyscope(
-    name: str, radio_map: rt.RadioMap, ps_groups: dict[str, ps.Group]
+    name: str,
+    radio_map: rt.RadioMap,
+    ps_groups: dict[str, ps.Group],
+    cfg: RadioMapConfig,
 ):
     if isinstance(radio_map, rt.PlanarRadioMap):
         # TODO: do something faster if the radio map is already registered
@@ -79,7 +84,12 @@ def add_radio_map_to_polyscope(
         rm_values = np.max(radio_map.path_gain.numpy(), axis=0)
         # TODO: use configurable colormap
         texture, alpha = rt.radio_map_texture(
-            rm_values, db_scale=True, vmin=-150, vmax=-50, premultiply_alpha=False
+            rm_values,
+            db_scale=True,
+            vmin=cfg.vmin,
+            vmax=cfg.vmax,
+            premultiply_alpha=False,
+            rm_cmap=cfg.color_map,
         )
         struct.add_color_quantity(
             name,

@@ -2,6 +2,7 @@ import os
 
 import mitsuba as mi
 import numpy as np
+import matplotlib.pyplot as plt
 import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
@@ -28,6 +29,10 @@ class SionnaRtGui:
 
         # Radio map results
         self.radio_map: rt.RadioMap | None = None
+        self.rm_color_map_options = [v for v in plt.colormaps() if not v.endswith("_r")]
+        self.rm_color_map_index = self.rm_color_map_options.index(
+            self.cfg.radio_map.color_map
+        )
 
         # Paths results
         self.paths_buffer: rt.PathsBuffer | None = None
@@ -97,7 +102,9 @@ class SionnaRtGui:
             # self.radio_map._pathgain_map = mi.TensorXf(
             #     np.random.uniform(0, 1, sh).astype(np.float32)
             # )
-            add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
+            add_radio_map_to_polyscope(
+                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+            )
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
@@ -138,7 +145,7 @@ class SionnaRtGui:
         add_scene_to_polyscope(self.scene, self.ps_groups)
         if recenter_camera:
             # TODO: automatically zoom to fill the screen, if scene has changed
-            ps.set_view_center(self.scene.mi_scene.bbox().center(), fly_to=True)
+            ps.set_view_center(self.scene.mi_scene.bbox().center(), fly_to=False)
 
     # ------------------------
 
@@ -179,9 +186,11 @@ class SionnaRtGui:
             position, is_transmitter, existing_rd, self.ps_groups
         )
 
-        if allow_auto_update and self.cfg.auto_update_radio_map and is_transmitter:
+        if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
             self.radio_map = self.compute_radio_map()
-            add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
+            add_radio_map_to_polyscope(
+                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+            )
 
     def clear_radio_devices(self):
         self.scene._transmitters.clear()
@@ -189,7 +198,7 @@ class SionnaRtGui:
         for name in self.ps_groups["rd"].get_child_structure_names():
             ps.get_point_cloud(name).remove()
 
-        if self.cfg.auto_update_radio_map:
+        if self.cfg.radio_map.auto_update:
             self.clear_radio_map()
 
     def clear_radio_map(self):
@@ -223,10 +232,14 @@ class SionnaRtGui:
             ps.unshow()
 
     def gui(self):
+        # TODO: set ImGui window title
+
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
-            psim.Text(f"Current scene:\n{self.cfg.scene_filename}")
+            psim.Spacing()
+            # psim.Text(f"Current scene:\n{os.path.basename(self.cfg.scene_filename)}")
 
             # Quick pick from built-in scenes
+            psim.Text("Scene selection:")
             changed, combo_i = psim.Combo(
                 "##scene_picker",
                 self.current_scene_idx,
@@ -240,6 +253,8 @@ class SionnaRtGui:
             psim.Spacing()
 
         if psim.CollapsingHeader("Radio devices", psim.ImGuiTreeNodeFlags_DefaultOpen):
+            psim.Spacing()
+
             clicked = psim.Button("Clear all radio devices")
             if clicked:
                 self.clear_radio_devices()
@@ -251,14 +266,38 @@ class SionnaRtGui:
             psim.Spacing()
 
         if psim.CollapsingHeader("Radio map", psim.ImGuiTreeNodeFlags_DefaultOpen):
-            _, self.cfg.auto_update_radio_map = psim.Checkbox(
-                "Automatic update", self.cfg.auto_update_radio_map
-            )
+            psim.Spacing()
 
             clicked = psim.Button("Compute radio map")
             if clicked:
                 self.radio_map = self.compute_radio_map()
-                add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
+                add_radio_map_to_polyscope(
+                    "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                )
+
+            psim.SameLine()
+            _, self.cfg.radio_map.auto_update = psim.Checkbox(
+                "Automatic update##rm", self.cfg.radio_map.auto_update
+            )
+
+            if self.radio_map is not None:
+                struct = ps.get_surface_mesh("radio_map")
+                changed, show_rm = psim.Checkbox("Show radio map", struct.is_enabled())
+                if changed:
+                    struct.set_enabled(show_rm)
+
+                changed, self.rm_color_map_index = psim.Combo(
+                    "Colormap",
+                    self.rm_color_map_index,
+                    self.rm_color_map_options,
+                )
+                if changed:
+                    self.cfg.radio_map.color_map = self.rm_color_map_options[
+                        self.rm_color_map_index
+                    ]
+                    add_radio_map_to_polyscope(
+                        "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                    )
 
             # TODO: simulation parameters (diffuse, specular, sample count, height, etc)
             # TODO: plane / mesh picker (changes type of radio map)
@@ -267,8 +306,10 @@ class SionnaRtGui:
             psim.Spacing()
 
         if psim.CollapsingHeader("Paths", psim.ImGuiTreeNodeFlags_DefaultOpen):
+            psim.Spacing()
+
             _, self.cfg.auto_update_paths = psim.Checkbox(
-                "Automatic update", self.cfg.auto_update_paths
+                "Automatic update##paths", self.cfg.auto_update_paths
             )
 
             clicked = psim.Button("Compute paths")
@@ -280,6 +321,8 @@ class SionnaRtGui:
             psim.Spacing()
 
         if psim.CollapsingHeader("Rendering"):
+            psim.Spacing()
+
             changed, self.cfg.use_vsync = psim.Checkbox("VSync", self.cfg.use_vsync)
             if changed:
                 ps.set_enable_vsync(self.cfg.use_vsync)
