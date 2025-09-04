@@ -6,6 +6,24 @@ from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLO
 from .config import RadioMapConfig
 
 
+ITU_TO_PS_MATERIAL = {
+    "marble": "ceramic",
+    "concrete": "clay",
+    "wood": "clay",
+    "metal": "candy",
+    "brick": "clay",
+    "glass": "ceramic",
+    "floorboard": "clay",
+    "ceiling_board": "clay",
+    "chipboard": "clay",
+    "plasterboard": "clay",
+    "plywood": "clay",
+    "very_dry_ground": "clay",
+    "medium_dry_ground": "clay",
+    "wet_ground": "clay",
+}
+
+
 def get_built_in_scenes() -> dict[str, str]:
     result = {}
     for var_name in dir(rt.scene):
@@ -21,14 +39,20 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
     # TODO: apply consistent materials (based on radio material)
     for mesh in scene.mi_scene.shapes():
         mat = mesh.bsdf()
+        ps_mat = None
         if isinstance(mat, rt.RadioMaterialBase):
             color = mat.color
+            # TODO: use fancier materials
+            # if isinstance(mat, rt.ITURadioMaterial):
+            #     ps_mat = ITU_TO_PS_MATERIAL.get(mat.itu_type)
         else:
             color = (0.65, 0.65, 0.65)
 
         vertices = mesh.vertex_positions_buffer().numpy().reshape(-1, 3)
         faces = mesh.faces_buffer().numpy().reshape(-1, 3)
-        struct = ps.register_surface_mesh(mesh.id(), vertices, faces, color=color)
+        struct = ps.register_surface_mesh(
+            mesh.id(), vertices, faces, color=color, material=ps_mat
+        )
         struct.add_to_group(ps_groups["scene"])
 
 
@@ -91,6 +115,7 @@ def add_radio_map_to_polyscope(
             premultiply_alpha=False,
             rm_cmap=cfg.color_map,
         )
+        # TODO: change texture interpolation to nearest neighbor
         struct.add_color_quantity(
             name,
             texture,

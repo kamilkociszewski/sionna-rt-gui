@@ -1,17 +1,12 @@
 import argparse
 import os
 
-
 from common import add_project_root_to_path
 
 add_project_root_to_path()
 
-from sionna import rt
-import sionna_rt_gui as gui
 from sionna_rt_gui import AppHolder, DEFAULT_CONFIG_PATH
 from sionna_rt_gui.config import load_config
-import numpy as np
-import polyscope as ps
 
 
 def main():
