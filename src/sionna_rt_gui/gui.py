@@ -168,14 +168,15 @@ class SionnaRtGui:
 
         # Automatic refinement of the radio map
         if self.radio_map is not None:
-            needs_more = (
+            if (
                 self.rm_accumulated_samples
                 < self.cfg.radio_map.accumulate_max_samples_per_tx
-            )
-            if needs_more:
+            ):
                 rm_new = self.compute_radio_map()
                 self.radio_map._pathgain_map += rm_new.path_gain
-                self.rm_accumulated_samples += self.cfg.radio_map.samples_per_tx
+                self.rm_accumulated_samples += self.cfg.radio_map.samples_per_it // len(
+                    self.scene._transmitters
+                )
                 add_radio_map_to_polyscope(
                     "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
                 )
@@ -196,6 +197,9 @@ class SionnaRtGui:
     def compute_radio_map(self) -> rt.RadioMap:
         solver = rt.RadioMapSolver()
         # TODO: expose and pass down all the relevant parameters
+        samples_per_tx = self.cfg.radio_map.samples_per_it // len(
+            self.scene._transmitters
+        )
         return solver(
             self.scene,
             seed=self.frame_i,
@@ -205,7 +209,7 @@ class SionnaRtGui:
             cell_size=self.cfg.radio_map.cell_size,
             measurement_surface=self.cfg.radio_map.measurement_surface,
             # precoding_vec=self.cfg.radio_map.precoding_vec,
-            samples_per_tx=self.cfg.radio_map.samples_per_tx,
+            samples_per_tx=samples_per_tx,
             max_depth=self.cfg.radio_map.max_depth,
             los=self.cfg.radio_map.los,
             specular_reflection=self.cfg.radio_map.specular_reflection,
@@ -345,9 +349,9 @@ class SionnaRtGui:
                 )
             needs_update |= changed
 
-            changed, self.cfg.radio_map.log_samples_per_tx = psim.SliderFloat(
-                "Samples / tx (log 10)",
-                self.cfg.radio_map.log_samples_per_tx,
+            changed, self.cfg.radio_map.log_samples_per_it = psim.SliderFloat(
+                "Samples / it (log 10)",
+                self.cfg.radio_map.log_samples_per_it,
                 v_min=0,
                 v_max=9,
                 format="10^%.1f",

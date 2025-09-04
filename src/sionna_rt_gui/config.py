@@ -20,7 +20,7 @@ class RadioMapConfig:
     cell_size: tuple[float, float] = (1.0, 1.0)
     measurement_surface: str | None = None
     # precoding_vec: tuple[mi.TensorXf, mi.TensorXf] | None = None
-    log_samples_per_tx: float = 7.0
+    log_samples_per_it: float = 8.0
     max_depth: int = 5
     los: bool = True
     specular_reflection: bool = True
@@ -37,8 +37,8 @@ class RadioMapConfig:
     vmax: float = -50
 
     @property
-    def samples_per_tx(self) -> int:
-        return int(10**self.log_samples_per_tx)
+    def samples_per_it(self) -> int:
+        return int(10**self.log_samples_per_it)
 
 
 @dataclass(kw_only=True)
