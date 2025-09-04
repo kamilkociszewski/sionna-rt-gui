@@ -35,7 +35,9 @@ class AppHolder:
         self.data_path: str | None = data_path
         self.overrides: dict[str, Any] = overrides or {}
         self.app = None
+
         self.app_failed: bool = False
+        self.last_valid_config: Any | None = None
 
         self.apply_overrides(cfg)
         self.create_app(cfg)
@@ -51,22 +53,33 @@ class AppHolder:
         drjit_cleanup()
         self.config_watcher = FilesWatcher((cfg.config_path,))
         self.app = MainApp(cfg)
+        self.last_valid_config = self.app.cfg
 
     def maybe_reload(self):
+        if self.app is None:
+            # Maybe the app failed during init, so we can no longer check if reloads
+            # were requested from the app. But at least we can keep detecting code
+            # or config changes.
+            cfg = self.last_valid_config
+            snapshot_load_requested = False
+            code_reload_requested = False
+        else:
+            cfg = self.app.cfg
+            snapshot_load_requested = self.app.snapshot_load_requested
+            code_reload_requested = self.app.code_reload_requested
+
         if not (
-            self.app.cfg.use_live_reload
-            or self.app.snapshot_load_requested
-            or self.app.code_reload_requested
+            cfg.use_live_reload or snapshot_load_requested or code_reload_requested
         ):
             return
 
-        old_config_path: str = self.app.cfg.config_path
+        old_config_path: str = cfg.config_path
         new_config_path: str | None = None
-        is_snapshot = self.app.cfg.loaded_from_snapshot
+        is_snapshot: bool = cfg.loaded_from_snapshot
 
-        if self.app.snapshot_load_requested:
+        if snapshot_load_requested:
             # --- Snapshot load requested by the user
-            new_config_path = self.app.snapshot_filename
+            new_config_path = self.app.scene_filename
             is_snapshot = True
 
         elif not is_snapshot and self.config_watcher.change_detected():
@@ -79,12 +92,13 @@ class AppHolder:
             new_config_path = old_config_path
             print(f"[i] Detected config change, reloading: {new_config_path}")
 
-        elif self.app.code_reload_requested or self.module_watcher.change_detected():
+        elif code_reload_requested or self.module_watcher.change_detected():
             # --- Code change detected
             # If this reload fails, the same code change won't be detected again at the
             # next tick. That's a good thing, since we don't want to try reloading an
             # invalid source / module at every tick.
-            self.app.code_reload_requested = False
+            if self.app is not None:
+                self.app.code_reload_requested = False
             print("[i] Detected code change, reloading module and config")
             if self.module_watcher.reload():
                 # Reload the current config from scratch, since the code
@@ -98,7 +112,8 @@ class AppHolder:
                 new_config = load_fn(new_config_path, data_path=self.data_path)
             except Exception as e:
                 # We don't want to keep trying to load an invalid config
-                self.app.snapshot_load_requested = False
+                if self.app is not None:
+                    self.app.snapshot_load_requested = False
                 new_config = None
 
                 print(
