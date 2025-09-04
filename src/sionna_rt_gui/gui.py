@@ -5,11 +5,11 @@ import numpy as np
 import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
-from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 
 from .config import GuiConfig
 from .sionna_utils import (
     add_radio_map_to_polyscope,
+    add_radio_device_to_polyscope,
     add_scene_to_polyscope,
     get_built_in_scenes,
 )
@@ -61,10 +61,11 @@ class SionnaRtGui:
         was_initialized = ps.is_initialized()
         if not was_initialized:
             ps.set_up_dir("z_up")
+            ps.set_front_dir("y_front")
             ps.init()
 
         # Polyscope structures & groups
-        self.setup_ps_structures()
+        self.reset_and_setup_structures()
 
         # TODO: add slice plane controls (Polyscope has built-in support)
         # TODO: add scene drag & drop support
@@ -80,15 +81,29 @@ class SionnaRtGui:
         )
 
         # TODO: remove this
-        if True:
-            self.radio_map = rt.PlanarRadioMap(self.scene, cell_size=1.0)
-            sh = tuple(max(1, v) for v in self.radio_map.path_gain.shape)
-            self.radio_map._pathgain_map = mi.TensorXf(
-                np.random.uniform(0, 1, sh).astype(np.float32)
-            )
+        if False:
+            # Add some example transmitters
+            for pos in [
+                [50, -10, 29 + 2.5],
+                [13, 13, 51 + 2.5],
+                [-34, -10, 22 + 2.5],
+            ]:
+                self.add_radio_device(pos, True, allow_auto_update=False)
+
+            self.radio_map = self.compute_radio_map()
+
+            # self.radio_map = rt.PlanarRadioMap(self.scene, cell_size=1.0)
+            # sh = tuple(max(1, v) for v in self.radio_map.path_gain.shape)
+            # self.radio_map._pathgain_map = mi.TensorXf(
+            #     np.random.uniform(0, 1, sh).astype(np.float32)
+            # )
             add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
 
-    def setup_ps_structures(self):
+    def reset_and_setup_structures(self):
+        # Clear Sionna state
+        self.radio_map = None
+        self.paths_buffer = None
+
         # Clear Polyscope state
         ps.remove_all_structures()
         ps.remove_all_groups()
@@ -99,9 +114,18 @@ class SionnaRtGui:
             "radio_maps": ps.create_group("Radio maps"),
         }
 
-    def load_scene(self, scene_path: str):
-        self.setup_ps_structures()
+    def load_scene(self, scene_path: str, recenter_camera: bool = True):
+        self.reset_and_setup_structures()
         self.scene = rt.load_scene(scene_path)
+
+        self.scene.tx_array = rt.PlanarArray(
+            num_rows=1,
+            num_cols=1,
+            vertical_spacing=0.5,
+            horizontal_spacing=0.5,
+            pattern="dipole",
+            polarization="cross",
+        )
 
         self.cfg.scene_filename = scene_path
         try:
@@ -112,34 +136,36 @@ class SionnaRtGui:
             pass
 
         add_scene_to_polyscope(self.scene, self.ps_groups)
+        if recenter_camera:
+            # TODO: automatically zoom to fill the screen, if scene has changed
+            ps.set_view_center(self.scene.mi_scene.bbox().center(), fly_to=True)
+
+    # ------------------------
 
     def tick(self):
+        # TODO: automatic refinement & accumulation of the radio map, if enabled
         self.process_inputs()
         self.gui()
 
-    def add_radio_device(self, position: list[float], is_transmitter: bool):
+    # ------------------------
+
+    def compute_radio_map(self):
+        solver = rt.RadioMapSolver()
+        # TODO: expose and pass down all the relevant parameters
+        return solver(self.scene, max_depth=5, cell_size=1.0, samples_per_tx=int(5e7))
+
+    # ------------------------
+
+    def add_radio_device(
+        self,
+        position: list[float],
+        is_transmitter: bool,
+        allow_auto_update: bool = True,
+    ):
         # TODO: controllable offset to the clicked surface (along normal?)
         existing_rd = (
             self.scene.transmitters if is_transmitter else self.scene.receivers
         )
-
-        # Create or update point cloud for transmitters or receivers
-        position_np = np.array(position)[None, :]
-        name = "Transmitters" if is_transmitter else "Receivers"
-        if ps.has_point_cloud(name):
-            # TODO: is there an easier way to get the existing points?
-            # existing_points = ps.get_point_cloud(name).get_position()
-            existing_points = [rd.position.numpy().T for rd in existing_rd.values()]
-            position_np = np.concatenate(existing_points + [position_np], axis=0)
-
-        struct = ps.register_point_cloud(
-            name,
-            position_np,
-            color=(
-                DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR
-            ),
-        )
-        struct.add_to_group(self.ps_groups["rd"])
 
         # Add actual radio device to Sionna scene
         new_rd = (rt.Transmitter if is_transmitter else rt.Receiver)(
@@ -149,25 +175,40 @@ class SionnaRtGui:
         )
         self.scene.add(new_rd)
 
+        add_radio_device_to_polyscope(
+            position, is_transmitter, existing_rd, self.ps_groups
+        )
+
+        if allow_auto_update and self.cfg.auto_update_radio_map and is_transmitter:
+            self.radio_map = self.compute_radio_map()
+            add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
+
     def clear_radio_devices(self):
         self.scene._transmitters.clear()
         self.scene._receivers.clear()
         for name in self.ps_groups["rd"].get_child_structure_names():
             ps.get_point_cloud(name).remove()
 
+        if self.cfg.auto_update_radio_map:
+            self.clear_radio_map()
+
+    def clear_radio_map(self):
+        self.radio_map = None
+        if ps.has_surface_mesh("radio_map"):
+            ps.get_surface_mesh("radio_map").remove()
+
+    # ------------------------
+
     def process_inputs(self):
         imgui_io = psim.GetIO()
 
-        # Ctrl + left click: add transmitter
-        if imgui_io.KeyCtrl and imgui_io.MouseClicked[0]:
-            self.add_radio_device(
-                ps.screen_coords_to_world_position(imgui_io.MousePos), True
-            )
-        # Ctrl + right click: add receiver
-        if imgui_io.KeyCtrl and imgui_io.MouseClicked[1]:
-            self.add_radio_device(
-                ps.screen_coords_to_world_position(imgui_io.MousePos), False
-            )
+        # Ctrl + left/right click: add transmitter/receiver
+        if imgui_io.KeyCtrl and (imgui_io.MouseClicked[0] or imgui_io.MouseClicked[1]):
+            is_transmitter = imgui_io.MouseClicked[0]
+            # TODO: configurable placement offset along the normal
+            rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
+            rd_position += (0, 0, 2.5)
+            self.add_radio_device(rd_position, is_transmitter)
 
         # R: reload code
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("R")), repeat=False):
@@ -203,15 +244,21 @@ class SionnaRtGui:
             if clicked:
                 self.clear_radio_devices()
 
+            # TODO: scene-wide TX and RX array configuration
             # TODO: button to place radio devices: at random; or samples from a radio map
             # TODO: one entry for each transmitter & receiver (delete button, scattering pattern, orientation, etc)
             # TODO: widget to move & rotate existing radio devices
             psim.Spacing()
 
         if psim.CollapsingHeader("Radio map", psim.ImGuiTreeNodeFlags_DefaultOpen):
+            _, self.cfg.auto_update_radio_map = psim.Checkbox(
+                "Automatic update", self.cfg.auto_update_radio_map
+            )
+
             clicked = psim.Button("Compute radio map")
             if clicked:
-                print("Should compute radio map")
+                self.radio_map = self.compute_radio_map()
+                add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
 
             # TODO: simulation parameters (diffuse, specular, sample count, height, etc)
             # TODO: plane / mesh picker (changes type of radio map)
@@ -220,6 +267,10 @@ class SionnaRtGui:
             psim.Spacing()
 
         if psim.CollapsingHeader("Paths", psim.ImGuiTreeNodeFlags_DefaultOpen):
+            _, self.cfg.auto_update_paths = psim.Checkbox(
+                "Automatic update", self.cfg.auto_update_paths
+            )
+
             clicked = psim.Button("Compute paths")
             if clicked:
                 print("Should compute paths")

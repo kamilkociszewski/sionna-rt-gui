@@ -1,6 +1,7 @@
 import numpy as np
 import polyscope as ps
 from sionna import rt
+from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 
 
 def get_built_in_scenes() -> dict[str, str]:
@@ -29,6 +30,28 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
         struct.add_to_group(ps_groups["scene"])
 
 
+def add_radio_device_to_polyscope(
+    position: list[float],
+    is_transmitter: bool,
+    existing_rd: list[rt.RadioDevice],
+    ps_groups: dict[str, ps.Group],
+):
+    # Create or update point cloud for transmitters or receivers
+    position_np = np.array(position)[None, :]
+    name = "Transmitters" if is_transmitter else "Receivers"
+
+    # TODO: is there an easier way to get the existing points?
+    # existing_points = ps.get_point_cloud(name).get_position()
+    existing_points = [rd.position.numpy().T for rd in existing_rd.values()]
+    position_np = np.concatenate(existing_points + [position_np], axis=0)
+    struct = ps.register_point_cloud(
+        name,
+        position_np,
+        color=(DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR),
+    )
+    struct.add_to_group(ps_groups["rd"])
+
+
 def add_radio_map_to_polyscope(
     name: str, radio_map: rt.RadioMap, ps_groups: dict[str, ps.Group]
 ):
@@ -36,10 +59,10 @@ def add_radio_map_to_polyscope(
         # TODO: do something faster if the radio map is already registered
         # Create rectangle mesh to display the planar radio map
         to_world = radio_map.to_world.matrix.numpy().squeeze()
-        p0 = to_world @ np.array([-1, -1, 0, 0])
-        p1 = to_world @ np.array([-1, 1, 0, 0])
-        p2 = to_world @ np.array([1, -1, 0, 0])
-        p3 = to_world @ np.array([1, 1, 0, 0])
+        p0 = to_world @ np.array([-1, -1, 0, 1])
+        p1 = to_world @ np.array([-1, 1, 0, 1])
+        p2 = to_world @ np.array([1, -1, 0, 1])
+        p3 = to_world @ np.array([1, 1, 0, 1])
         vertices = np.array([p0, p1, p2, p3])[:, :3]
         faces = np.array([[0, 1, 2], [2, 1, 3]])
 
@@ -55,8 +78,17 @@ def add_radio_map_to_polyscope(
 
         rm_values = np.max(radio_map.path_gain.numpy(), axis=0)
         # TODO: use configurable colormap
-        texture, alpha = rt.radio_map_texture(rm_values, db_scale=True)
-        struct.add_color_quantity(name, texture, defined_on="texture", param_name="uv")
+        texture, alpha = rt.radio_map_texture(
+            rm_values, db_scale=True, vmin=-150, vmax=-50, premultiply_alpha=False
+        )
+        struct.add_color_quantity(
+            name,
+            texture,
+            defined_on="texture",
+            param_name="uv",
+            enabled=True,
+            image_origin="lower_left",
+        )
         # rgba = np.concatenate([texture, alpha[..., None]], axis=-1)
         # struct.add_color_alpha_image_quantity(
         #     name, rgba, defined_on="texture", param_name="uv"

@@ -18,6 +18,12 @@ class GuiConfig:
     scene_filename: str | None = None
     loaded_from_snapshot: bool = False
 
+    # Radio map
+    auto_update_radio_map: bool = True
+
+    # Paths
+    auto_update_paths: bool = True
+
 
 def load_config(config_path: str, data_path: str | None) -> GuiConfig:
     try:
