@@ -5,9 +5,14 @@ import numpy as np
 import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
+from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 
 from .config import GuiConfig
-from .sionna_utils import add_scene_to_polyscope, get_built_in_scenes
+from .sionna_utils import (
+    add_radio_map_to_polyscope,
+    add_scene_to_polyscope,
+    get_built_in_scenes,
+)
 
 
 class SionnaRtGui:
@@ -15,10 +20,17 @@ class SionnaRtGui:
         self.cfg = cfg
 
         # --- Sionna RT
+        # Scene
         built_in_scenes = get_built_in_scenes()
         self.built_in_scene_names = ["None"] + list(built_in_scenes.keys())
         self.built_in_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
+
+        # Radio map results
+        self.radio_map: rt.RadioMap | None = None
+
+        # Paths results
+        self.paths_buffer: rt.PathsBuffer | None = None
 
         # --- Inputs state
         self.last_mouse_pos: mi.ScalarVector2f | None = None
@@ -67,6 +79,15 @@ class SionnaRtGui:
             self.cfg.scene_filename or built_in_scenes["simple_street_canyon_with_cars"]
         )
 
+        # TODO: remove this
+        if True:
+            self.radio_map = rt.PlanarRadioMap(self.scene, cell_size=1.0)
+            sh = tuple(max(1, v) for v in self.radio_map.path_gain.shape)
+            self.radio_map._pathgain_map = mi.TensorXf(
+                np.random.uniform(0, 1, sh).astype(np.float32)
+            )
+            add_radio_map_to_polyscope("radio_map", self.radio_map, self.ps_groups)
+
     def setup_ps_structures(self):
         # Clear Polyscope state
         ps.remove_all_structures()
@@ -75,6 +96,7 @@ class SionnaRtGui:
         self.ps_groups = {
             "scene": ps.create_group("Scene meshes"),
             "rd": ps.create_group("Radio devices"),
+            "radio_maps": ps.create_group("Radio maps"),
         }
 
     def load_scene(self, scene_path: str):
@@ -110,7 +132,13 @@ class SionnaRtGui:
             existing_points = [rd.position.numpy().T for rd in existing_rd.values()]
             position_np = np.concatenate(existing_points + [position_np], axis=0)
 
-        struct = ps.register_point_cloud(name, position_np)
+        struct = ps.register_point_cloud(
+            name,
+            position_np,
+            color=(
+                DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR
+            ),
+        )
         struct.add_to_group(self.ps_groups["rd"])
 
         # Add actual radio device to Sionna scene
