@@ -1,3 +1,4 @@
+import drjit as dr
 import numpy as np
 import polyscope as ps
 from sionna import rt
@@ -87,35 +88,17 @@ def add_radio_map_to_polyscope(
     if radio_map is None:
         return
 
+    # TODO: make all of this faster, we shouldn't be bottlenecked on the rendering / transfers
     if isinstance(radio_map, rt.PlanarRadioMap):
-        # TODO: do something faster if the radio map is already registered
-        # Create rectangle mesh to display the planar radio map
-        to_world = radio_map.to_world.matrix.numpy().squeeze()
-        p0 = to_world @ np.array([-1, -1, 0, 1])
-        p1 = to_world @ np.array([-1, 1, 0, 1])
-        p2 = to_world @ np.array([1, -1, 0, 1])
-        p3 = to_world @ np.array([1, 1, 0, 1])
-        vertices = np.array([p0, p1, p2, p3])[:, :3]
-        faces = np.array([[0, 1, 2], [2, 1, 3]])
-
-        # Add plane mesh to Polyscope
-        struct = ps.register_surface_mesh(name, vertices=vertices, faces=faces)
-        struct.add_to_group(ps_groups["radio_maps"])
-
-        # UV map
-        param_vals = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-        struct.add_parameterization_quantity(
-            "uv", param_vals, defined_on="vertices", enabled=False
-        )
+        struct = get_or_add_planar_radio_map_mesh(name, radio_map, ps_groups)
 
         rm_values = np.max(radio_map.path_gain.numpy(), axis=0)
-        # TODO: use configurable colormap
         texture, alpha = rt.radio_map_texture(
             rm_values,
             db_scale=True,
             vmin=cfg.vmin,
             vmax=cfg.vmax,
-            premultiply_alpha=False,
+            premultiply_alpha=True,
             rm_cmap=cfg.color_map,
         )
         # TODO: change texture interpolation to nearest neighbor
@@ -127,15 +110,88 @@ def add_radio_map_to_polyscope(
             enabled=True,
             image_origin="lower_left",
         )
-        # rgba = np.concatenate([texture, alpha[..., None]], axis=-1)
-        # struct.add_color_alpha_image_quantity(
-        #     name, rgba, defined_on="texture", param_name="uv"
-        # )
+
+        # Note: texture-space alpha is not supported yet.
+        # TODO: figure out the correct flip / transpose combination or change vertex ordering
+        struct.add_scalar_quantity(
+            f"{name}_alpha",
+            alpha.ravel(),
+            defined_on="vertices",
+            enabled=False,
+        )
+        struct.set_transparency_quantity(f"{name}_alpha")
 
     elif isinstance(radio_map, rt.MeshRadioMap):
         raise NotImplementedError("Mesh radio maps are not supported yet")
     else:
         raise ValueError(f"Unsupported radio map type: {type(radio_map)}")
+
+
+def get_or_add_planar_radio_map_mesh(
+    name: str,
+    radio_map: rt.PlanarRadioMap,
+    ps_groups: dict[str, ps.Group],
+) -> ps.SurfaceMesh:
+
+    rm_shape = radio_map.path_gain.shape[1:]
+
+    if ps.has_surface_mesh(name):
+        struct = ps.get_surface_mesh(name)
+
+        n_entries = dr.prod(rm_shape)
+        if n_entries == struct.n_vertices():
+            # TODO(!): need to update the vertices if pose changed, too
+            return struct
+
+    # Create rectangle mesh to display the planar radio map.
+    # We need one vertex per entry in the radio map because spatially-varying
+    # transparency cannot be defined in texture space.
+    vertices_x, vertices_y = np.meshgrid(
+        np.linspace(-1, 1, rm_shape[1]),
+        np.linspace(-1, 1, rm_shape[0]),
+        indexing="xy",
+    )
+    vertices = np.stack(
+        [
+            vertices_x,
+            vertices_y,
+            np.zeros_like(vertices_x),
+            np.ones_like(vertices_x),
+        ],
+        axis=-1,
+    ).reshape(-1, 4)
+    # Transform vertices to world coordinates (accounts from plane pose)
+    to_world = radio_map.to_world.matrix.numpy().squeeze()
+    vertices = (vertices @ to_world.T)[:, :3]
+
+    # Faces: two triangles per cell
+    # Adapted from: https://stackoverflow.com/a/44935368
+    r = np.arange(vertices.shape[0]).reshape(rm_shape)
+    faces = np.empty((rm_shape[0] - 1, rm_shape[1] - 1, 2, 3), dtype=int)
+    faces[:, :, 0, 0] = r[:-1, :-1]
+    faces[:, :, 1, 0] = r[:-1, 1:]
+    faces[:, :, 0, 1] = r[:-1, 1:]
+    faces[:, :, 1, 1] = r[1:, 1:]
+    faces[:, :, :, 2] = r[1:, :-1, None]
+    faces = faces.reshape(-1, 3)
+
+    # Add plane mesh to Polyscope
+    struct = ps.register_surface_mesh(name, vertices=vertices, faces=faces)
+    struct.add_to_group(ps_groups["radio_maps"])
+
+    # UV map
+    param_vals = np.stack(
+        [
+            (vertices_x.flatten() + 1) * 0.5,
+            (vertices_y.flatten() + 1) * 0.5,
+        ],
+        axis=-1,
+    )
+    struct.add_parameterization_quantity(
+        "uv", param_vals, defined_on="vertices", enabled=False
+    )
+
+    return struct
 
 
 def add_paths_to_polyscope(

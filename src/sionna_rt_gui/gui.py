@@ -48,6 +48,7 @@ class SionnaRtGui:
 
         # --- Polyscope setup
         # Can be used to derive e.g. random seeds.
+        self.ps_groups: dict[str, ps.Group] = {}
         self.frame_i: int = 0
         self.build_default_ps_gui: bool = False
         # Pre-init settings
