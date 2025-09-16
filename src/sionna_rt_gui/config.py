@@ -32,7 +32,7 @@ class RadioMapConfig:
     # stop_threshold: float | None = None
 
     # -- Display
-    color_map: str = "viridis"
+    color_map: str = "magma"
     vmin: float = -150
     vmax: float = -50
 
