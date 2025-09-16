@@ -79,6 +79,18 @@ def add_radio_device_to_polyscope(
     struct.add_to_group(ps_groups["rd"])
 
 
+def update_radio_device_polyscope(
+    existing_rd: list[rt.RadioDevice],
+    is_transmitter: bool,
+):
+    name = "Transmitters" if is_transmitter else "Receivers"
+    struct = ps.get_point_cloud(name)
+    position_np = np.concatenate(
+        [rd.position.numpy().T for rd in existing_rd.values()], axis=0
+    )
+    struct.update_point_positions(position_np)
+
+
 def add_radio_map_to_polyscope(
     name: str,
     radio_map: rt.RadioMap | None,

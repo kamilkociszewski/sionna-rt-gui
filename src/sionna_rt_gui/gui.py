@@ -1,5 +1,3 @@
-import os
-
 import mitsuba as mi
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,6 +13,7 @@ from .sionna_utils import (
     get_built_in_scenes,
     add_paths_to_polyscope,
 )
+from .selection import SelectionType, selection_gui
 
 
 class SionnaRtGui:
@@ -27,6 +26,7 @@ class SionnaRtGui:
         self.built_in_scene_names = ["None"] + list(built_in_scenes.keys())
         self.built_in_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
+        self.scene: rt.Scene | None = None
 
         # Radio map results
         self.radio_map: rt.RadioMap | None = None
@@ -46,11 +46,17 @@ class SionnaRtGui:
         self.snapshot_load_requested: bool = False
         self.code_reload_requested: bool = False
 
+        # --- Selections
+        self.selected_object: rt.SceneObject | None = None
+        self.selected_type: SelectionType | None = None
+
         # --- Polyscope setup
         # Can be used to derive e.g. random seeds.
         self.ps_groups: dict[str, ps.Group] = {}
         self.frame_i: int = 0
         self.build_default_ps_gui: bool = False
+        self.was_mouse_dragging: bool = False
+        self.prev_gizmo_to_world: np.ndarray | None = None
         # Pre-init settings
         ps.set_program_name(self.cfg.title)
         # Window size and position will be loaded from the last run from `.polyscope.ini`
@@ -290,6 +296,11 @@ class SionnaRtGui:
         if self.cfg.paths.auto_update:
             self.clear_paths()
 
+    def reset_radio_map(self):
+        self.rm_accumulated_samples = 0
+        if self.radio_map is not None:
+            self.radio_map._pathgain_map *= 0.0
+
     def clear_radio_map(self):
         self.radio_map = None
         self.rm_accumulated_samples = 0
@@ -305,14 +316,35 @@ class SionnaRtGui:
 
     def process_inputs(self):
         imgui_io = psim.GetIO()
+        allow_click = not imgui_io.WantCaptureMouse
+        has_left_click = allow_click and psim.IsMouseClicked(psim.ImGuiMouseButton_Left)
+        has_mouse_drag = psim.IsMouseDragging(
+            psim.ImGuiMouseButton_Left
+        ) or psim.IsMouseDragging(psim.ImGuiMouseButton_Right)
+        has_left_release = allow_click and psim.IsMouseReleased(
+            psim.ImGuiMouseButton_Left
+        )
+        has_right_click = allow_click and psim.IsMouseClicked(
+            psim.ImGuiMouseButton_Right
+        )
 
         # Ctrl + left/right click: add transmitter/receiver
-        if imgui_io.KeyCtrl and (imgui_io.MouseClicked[0] or imgui_io.MouseClicked[1]):
+        if imgui_io.KeyCtrl and (has_left_click or has_right_click):
             is_transmitter = imgui_io.MouseClicked[0]
             # TODO: configurable placement offset along the normal
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
             rd_position += (0, 0, 2.5)
             self.add_radio_device(rd_position, is_transmitter)
+
+        # Plain left click: object selection
+        if has_left_release and not (
+            imgui_io.KeyCtrl
+            or imgui_io.KeyShift
+            or imgui_io.KeyAlt
+            or has_mouse_drag
+            or self.was_mouse_dragging
+        ):
+            self.process_pick_result(ps.pick(screen_coords=imgui_io.MousePos))
 
         # R: reload code
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("R")), repeat=False):
@@ -325,6 +357,30 @@ class SionnaRtGui:
             or psim.IsKeyPressed(psim.ImGuiKey_Escape)
         ):
             ps.unshow()
+
+        self.was_mouse_dragging = has_mouse_drag
+
+    def process_pick_result(self, pick_result: ps.PickResult) -> bool:
+        # TODO: how to ignore clicks that hit the GUI?
+        if not pick_result.is_hit:
+            self.clear_selection()
+            return False
+
+        if pick_result.structure_name == "Transmitters":
+            tx_i = pick_result.structure_data["index"]
+            self.selected_object = self.scene.get(f"tx-{tx_i}")
+            self.selected_type = SelectionType.Transmitter
+
+            return True
+
+        self.clear_selection()
+        return False
+
+    def clear_selection(self):
+        self.selected_object = None
+        self.selected_type = None
+        if ps.has_point_cloud("Gizmo"):
+            ps.get_point_cloud("Gizmo").remove()
 
     def gui(self):
         # TODO: set ImGui window title
@@ -592,3 +648,6 @@ class SionnaRtGui:
                 ps.set_build_default_gui_panels(self.build_default_ps_gui)
 
             psim.Spacing()
+
+        if self.selected_object is not None:
+            selection_gui(self, self.selected_object, self.selected_type)
