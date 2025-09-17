@@ -34,6 +34,13 @@ def selection_gui(
     selected_object: rt.SceneObject | None,
     selected_type: SelectionType | None,
 ):
+    # Place window in the top-right corner of the screen
+    window_resolution = ps.get_window_size()
+    w = 350
+    psim.SetNextWindowSize((w, 400), psim.ImGuiCond_FirstUseEver)
+    psim.SetNextWindowPos(
+        (window_resolution[0] - w - 10, 10), psim.ImGuiCond_FirstUseEver
+    )
 
     psim.Begin("Selection##sionna", open=True)
 

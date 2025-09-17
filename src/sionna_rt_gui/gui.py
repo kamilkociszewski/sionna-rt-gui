@@ -397,6 +397,8 @@ class SionnaRtGui:
 
     def gui(self):
         # TODO: set ImGui window title
+        psim.SetWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
+        psim.SetWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
