@@ -6,6 +6,7 @@ import polyscope.imgui as psim
 from sionna import rt
 
 from .config import GuiConfig
+from .antenna_array import AntennaArrayConfig, antenna_array_gui
 from .sionna_utils import (
     add_radio_map_to_polyscope,
     set_or_update_radio_devices_polyscope,
@@ -27,6 +28,8 @@ class SionnaRtGui:
         self.built_in_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
         self.scene: rt.Scene | None = None
+        self.tx_array_config: AntennaArrayConfig = AntennaArrayConfig()
+        self.rx_array_config: AntennaArrayConfig = AntennaArrayConfig()
 
         # Radio map results
         self.radio_map: rt.RadioMap | None = None
@@ -137,23 +140,8 @@ class SionnaRtGui:
         self.reset_and_setup_structures()
         self.scene = rt.load_scene(scene_path)
 
-        # TODO: make antenna arrays configurable
-        self.scene.tx_array = rt.PlanarArray(
-            num_rows=1,
-            num_cols=1,
-            vertical_spacing=0.5,
-            horizontal_spacing=0.5,
-            pattern="iso",
-            polarization="cross",
-        )
-        self.scene.rx_array = rt.PlanarArray(
-            num_rows=1,
-            num_cols=1,
-            vertical_spacing=0.5,
-            horizontal_spacing=0.5,
-            pattern="iso",
-            polarization="cross",
-        )
+        self.scene.tx_array = self.tx_array_config.create()
+        self.scene.rx_array = self.rx_array_config.create()
 
         # TODO: setup configurable radio material diffuse & thickness
         for sh in self.scene.mi_scene.shapes():
@@ -292,6 +280,8 @@ class SionnaRtGui:
         self.scene._receivers.clear()
         for name in self.ps_groups["rd"].get_child_structure_names():
             ps.get_point_cloud(name).remove()
+        if self.selected_type in (SelectionType.Transmitter, SelectionType.Receiver):
+            self.clear_selection()
 
         if self.cfg.radio_map.auto_update:
             self.clear_radio_map()
@@ -411,17 +401,13 @@ class SionnaRtGui:
 
         if psim.CollapsingHeader("Radio devices", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
-
-            # TODO: legend (= color picker) for each radio device type
+            # TODO: button to place radio devices: at random; or samples from a radio map
+            antenna_array_gui(self)
 
             clicked = psim.Button("Clear all radio devices")
             if clicked:
                 self.clear_radio_devices()
 
-            # TODO: scene-wide TX and RX array configuration
-            # TODO: button to place radio devices: at random; or samples from a radio map
-            # TODO: one entry for each transmitter & receiver (delete button, scattering pattern, orientation, etc)
-            # TODO: widget to move & rotate existing radio devices
             psim.Spacing()
 
         if psim.CollapsingHeader("Radio map", psim.ImGuiTreeNodeFlags_DefaultOpen):

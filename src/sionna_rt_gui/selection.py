@@ -50,21 +50,28 @@ def selection_gui(
         # TODO: color picker to set RD color
         # TODO: do not trigger constant GPU -> CPU transfers
         psim.Spacing()
-        psim.Text(
-            "Characteristics:\n"
-            f"- Position [m]: {vec_str(rd.position.numpy())}\n"
-            f"- Orientation (angles): {vec_str(rd.orientation.numpy())}\n"
-            f"- Velocity [m/s]: {vec_str(rd.velocity.numpy())}\n"
-            + (f"- Transmit power [W]: {rd.power[0]:.2f}\n" if is_transmitter else "")
-        )
+        if psim.TreeNodeEx(
+            "Characteristics:##selection", psim.ImGuiTreeNodeFlags_DefaultOpen
+        ):
+            psim.Text(
+                f"Position [m]: {vec_str(rd.position.numpy())}\n"
+                f"Orientation (angles): {vec_str(rd.orientation.numpy())}\n"
+                f"Velocity [m/s]: {vec_str(rd.velocity.numpy())}\n"
+                + (f"Transmit power [W]: {rd.power[0]:.2f}\n" if is_transmitter else "")
+            )
+            psim.TreePop()
 
         psim.Spacing()
-        psim.Text(
-            "Antenna array:\n"
-            f"- Type: {type(array).__name__}\n"
-            f"- Array size: {dr.width(array.normalized_positions)}\n"
-            f"- Pattern: {type(pattern).__name__}\n"
-        )
+        if psim.TreeNodeEx(
+            "Antenna array:##selection", psim.ImGuiTreeNodeFlags_DefaultOpen
+        ):
+            psim.Text(
+                f"Type: {type(array).__name__}\n"
+                f"Array size: {dr.width(array.normalized_positions)}\n"
+                f"Pattern: {type(pattern).__name__}\n"
+            )
+
+            psim.TreePop()
 
         # Transformation gizmo
         if not ps.has_point_cloud("Gizmo"):
