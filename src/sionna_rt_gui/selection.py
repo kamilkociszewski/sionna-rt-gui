@@ -34,16 +34,18 @@ def selection_gui(
     selected_object: rt.SceneObject | None,
     selected_type: SelectionType | None,
 ):
-    psim.Begin(f'{selected_type.value} "{selected_object.name}"', open=True)
 
+    psim.Begin("Selection##sionna", open=True)
+
+    psim.Text(f"Selected: {selected_type.value} '{selected_object.name}'\n")
     psim.Spacing()
 
+    rd_update_needed = False
+    is_transmitter = selected_type == SelectionType.Transmitter
     if selected_type in (SelectionType.Transmitter, SelectionType.Receiver):
         rd = selected_object
-        is_transmitter = selected_type == SelectionType.Transmitter
         array = gui.scene.tx_array if is_transmitter else gui.scene.rx_array
         pattern = array.antenna_pattern
-        rd_update_needed = False
 
         changed, rd.color = psim.ColorEdit3("Color", rd.color)
         rd_update_needed |= changed
@@ -107,17 +109,7 @@ def selection_gui(
             # For debugging:
             # ps.register_point_cloud("Gizmo target", target[None, :], color=(1, 0, 1))
             dr.make_opaque(rd.position, rd.orientation)
-
             rd_update_needed = True
-            if is_transmitter:
-                # Note: receivers don't affect radio maps.
-                gui.reset_radio_map()
-
-            if gui.cfg.paths.auto_update:
-                # TODO: probably should move this to a little method
-                gui.clear_paths()
-                gui.paths = gui.compute_paths()
-                add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
 
         else:
             # Reset position & orientation of gizmo to match the selected object
@@ -129,16 +121,34 @@ def selection_gui(
             struct.set_transform(to_world)
 
         gui.prev_gizmo_to_world = to_world
-        if rd_update_needed:
-            set_or_update_radio_devices_polyscope(
-                gui.scene.transmitters,
-                is_transmitter=is_transmitter,
-                ps_groups=gui.ps_groups,
-            )
 
     psim.Spacing()
     if psim.Button(f"Remove {selected_type.value.lower()}"):
-        # TODO: remove the object from the scene
-        pass
+        match selected_type:
+            case SelectionType.Transmitter:
+                del gui.scene._transmitters[selected_object.name]
+            case SelectionType.Receiver:
+                del gui.scene._receivers[selected_object.name]
+            case _:
+                print(f"[!] Unexpected selection type: {selected_type}")
+                pass
+        rd_update_needed = True
+        gui.clear_selection()
+
+    if rd_update_needed:
+        set_or_update_radio_devices_polyscope(
+            gui.scene.transmitters if is_transmitter else gui.scene.receivers,
+            is_transmitter=is_transmitter,
+            ps_groups=gui.ps_groups,
+        )
+        if is_transmitter:
+            # Note: receivers don't affect radio maps.
+            gui.reset_radio_map()
+
+        if gui.cfg.paths.auto_update:
+            # TODO: probably should move this to a little method
+            gui.clear_paths()
+            gui.paths = gui.compute_paths()
+            add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
 
     psim.End()

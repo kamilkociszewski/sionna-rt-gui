@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import drjit as dr
 import polyscope.imgui as psim
 from sionna import rt
 from sionna.rt.antenna_pattern import (
@@ -53,7 +52,7 @@ def _antenna_array_gui(
     needs_update = False
 
     if psim.TreeNode(name):
-        psim.Text(f"Array size: {dr.width(array.normalized_positions)}\n")
+        # psim.Text(f"Array size: {dr.width(array.normalized_positions)}\n")
 
         changed, cfg.pattern_i = psim.Combo(
             f"Pattern##{name}", cfg.pattern_i, antenna_pattern_registry.list()

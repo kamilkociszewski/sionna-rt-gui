@@ -175,13 +175,15 @@ class SionnaRtGui:
                 < self.cfg.radio_map.accumulate_max_samples_per_tx
             ):
                 rm_new = self.compute_radio_map()
-                self.radio_map._pathgain_map += rm_new.path_gain
-                self.rm_accumulated_samples += self.cfg.radio_map.samples_per_it // len(
-                    self.scene._transmitters
-                )
-                add_radio_map_to_polyscope(
-                    "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
-                )
+                if rm_new is not None:
+                    self.radio_map._pathgain_map += rm_new.path_gain
+                    self.rm_accumulated_samples += (
+                        self.cfg.radio_map.samples_per_it
+                        // len(self.scene._transmitters)
+                    )
+                    add_radio_map_to_polyscope(
+                        "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                    )
 
         self.gui()
         self.frame_i += 1
@@ -256,8 +258,13 @@ class SionnaRtGui:
         )
 
         # Add actual radio device to Sionna scene
+        prefix = "tx" if is_transmitter else "rx"
+        free_index = len(existing_rd)
+        while f"{prefix}-{free_index}" in existing_rd:
+            free_index += 1
+
         new_rd = (rt.Transmitter if is_transmitter else rt.Receiver)(
-            name=f"{'tx' if is_transmitter else 'rx'}-{len(existing_rd)}",
+            name=f"{prefix}-{free_index}",
             position=position,
             orientation=[0, 0, 0],
         )
@@ -289,6 +296,17 @@ class SionnaRtGui:
             self.clear_paths()
 
     def reset_radio_map(self):
+        """
+        Attempts to reset the radio map to zero, as well as the accumulation counter.
+        However, if the number of transmitters has changed, the radio map will be
+        completely removed (and re-computed if auto-updates are enabled).
+        """
+        if len(self.scene._transmitters) != self.radio_map.num_tx:
+            self.clear_radio_map()
+            if self.cfg.radio_map.auto_update:
+                self.set_radio_map(self.compute_radio_map(), show=True)
+            return
+
         self.rm_accumulated_samples = 0
         if self.radio_map is not None:
             self.radio_map._pathgain_map *= 0.0
@@ -358,14 +376,13 @@ class SionnaRtGui:
             self.clear_selection()
             return False
 
+        picked_index = pick_result.structure_data["index"]
         if pick_result.structure_name in "Transmitters":
-            tx_i = pick_result.structure_data["index"]
-            self.selected_object = self.scene.get(f"tx-{tx_i}")
+            self.selected_object = list(self.scene._transmitters.values())[picked_index]
             self.selected_type = SelectionType.Transmitter
             return True
         elif pick_result.structure_name in "Receivers":
-            rx_i = pick_result.structure_data["index"]
-            self.selected_object = self.scene.get(f"rx-{rx_i}")
+            self.selected_object = list(self.scene._receivers.values())[picked_index]
             self.selected_type = SelectionType.Receiver
             return True
 
