@@ -48,9 +48,6 @@ def selection_gui(
 
     psim.Begin("Selection##sionna", open=True)
 
-    psim.Text(f"Selected: {selected_type.value} '{selected_object.name}'\n")
-    psim.Spacing()
-
     rd_update_needed = False
     is_transmitter = selected_type == SelectionType.Transmitter
     if selected_type in (SelectionType.Transmitter, SelectionType.Receiver):
@@ -58,12 +55,27 @@ def selection_gui(
         array = gui.scene.tx_array if is_transmitter else gui.scene.rx_array
         pattern = array.antenna_pattern
 
-        changed, rd.color = psim.ColorEdit3("Color", rd.color)
+        changed, rd.color = psim.ColorEdit3(
+            f"{selected_type.value} '{selected_object.name}'\n",
+            rd.color,
+            psim.ImGuiColorEditFlags_NoInputs,
+        )
         rd_update_needed |= changed
 
-        # TODO: color picker to set RD color
+        psim.SameLine()
+        # "Remove" button (right-aligned)
+        bw = 80
+        psim.SetCursorPosX(
+            psim.GetCursorPosX() + psim.GetContentRegionAvail()[0] - bw - 5
+        )
+        if psim.Button(f"Remove", (bw, 0)):
+            gui.remove_object(selected_object, selected_type)
+            rd_update_needed = True
+            gui.clear_selection()
+
+        psim.NewLine()
+
         # TODO: do not trigger constant GPU -> CPU transfers
-        psim.Spacing()
         if psim.TreeNodeEx(
             "Characteristics:##selection", psim.ImGuiTreeNodeFlags_DefaultOpen
         ):
@@ -141,12 +153,10 @@ def selection_gui(
         gui.prev_gizmo_to_world = to_world
 
     psim.Spacing()
-    if psim.Button(f"Remove {selected_type.value.lower()}"):
-        gui.remove_object(selected_object, selected_type)
-        rd_update_needed = True
-        gui.clear_selection()
 
     if rd_update_needed:
+        # TODO: auto-pause animation if animated object was moved?
+
         set_or_update_radio_devices_polyscope(
             gui.scene.transmitters if is_transmitter else gui.scene.receivers,
             is_transmitter=is_transmitter,
