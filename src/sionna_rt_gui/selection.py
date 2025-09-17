@@ -9,7 +9,7 @@ import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
 
-from .sionna_utils import update_radio_device_polyscope, add_paths_to_polyscope
+from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
 
 
 class SelectionType(StrEnum):
@@ -37,24 +37,25 @@ def selection_gui(
 
     psim.Spacing()
 
-    if psim.Button(f"Remove {selected_type.value.lower()}"):
-        # TODO: remove the object from the scene
-        pass
-
-    if selected_type == SelectionType.Transmitter:
-        tx = selected_object
-        array = gui.scene.tx_array
+    if selected_type in (SelectionType.Transmitter, SelectionType.Receiver):
+        rd = selected_object
+        is_transmitter = selected_type == SelectionType.Transmitter
+        array = gui.scene.tx_array if is_transmitter else gui.scene.rx_array
         pattern = array.antenna_pattern
+        rd_update_needed = False
 
-        # TODO: show antenna characteristics
+        changed, rd.color = psim.ColorEdit3("Color", rd.color)
+        rd_update_needed |= changed
+
+        # TODO: color picker to set RD color
         # TODO: do not trigger constant GPU -> CPU transfers
         psim.Spacing()
         psim.Text(
             "Characteristics:\n"
-            f"- Transmit power [W]: {tx.power[0]:.2f}\n"
-            f"- Position [m]: {vec_str(tx.position.numpy())}\n"
-            f"- Orientation (angles): {vec_str(tx.orientation.numpy())}\n"
-            f"- Velocity [m/s]: {vec_str(tx.velocity.numpy())}\n"
+            f"- Position [m]: {vec_str(rd.position.numpy())}\n"
+            f"- Orientation (angles): {vec_str(rd.orientation.numpy())}\n"
+            f"- Velocity [m/s]: {vec_str(rd.velocity.numpy())}\n"
+            + (f"- Transmit power [W]: {rd.power[0]:.2f}\n" if is_transmitter else "")
         )
 
         psim.Spacing()
@@ -68,7 +69,7 @@ def selection_gui(
         # Transformation gizmo
         if not ps.has_point_cloud("Gizmo"):
             struct = ps.register_point_cloud(
-                "Gizmo", tx.position.numpy().T, enabled=False
+                "Gizmo", rd.position.numpy().T, enabled=False
             )
             struct.set_transform_gizmo_enabled(True)
         else:
@@ -89,13 +90,15 @@ def selection_gui(
             struct.set_transform(to_world)
 
             # Apply transform to the selected object
-            tx.position = mi.Point3f(to_world[:3, -1])
+            rd.position = mi.Point3f(to_world[:3, -1])
             # TODO: apply rotation too
 
-            dr.make_opaque(tx.position, tx.orientation)
+            dr.make_opaque(rd.position, rd.orientation)
 
-            update_radio_device_polyscope(gui.scene.transmitters, is_transmitter=True)
-            gui.reset_radio_map()
+            rd_update_needed = True
+            if is_transmitter:
+                # Note: receivers don't affect radio maps.
+                gui.reset_radio_map()
 
             if gui.cfg.paths.auto_update:
                 # TODO: probably should move this to a little method
@@ -106,10 +109,21 @@ def selection_gui(
         else:
             # Reset position of gizmo to match the selected object
             to_world = GIZMO_SCALE * np.eye(4)
-            to_world[:3, -1] = tx.position.numpy().squeeze()
+            to_world[:3, -1] = rd.position.numpy().squeeze()
             to_world[-1, -1] = 1
             struct.set_transform(to_world)
 
         gui.prev_gizmo_to_world = to_world
+        if rd_update_needed:
+            set_or_update_radio_devices_polyscope(
+                gui.scene.transmitters,
+                is_transmitter=is_transmitter,
+                ps_groups=gui.ps_groups,
+            )
+
+    psim.Spacing()
+    if psim.Button(f"Remove {selected_type.value.lower()}"):
+        # TODO: remove the object from the scene
+        pass
 
     psim.End()

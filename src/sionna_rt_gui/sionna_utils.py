@@ -57,38 +57,45 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
         struct.add_to_group(ps_groups["scene"])
 
 
-def add_radio_device_to_polyscope(
-    position: list[float],
+def set_or_update_radio_devices_polyscope(
+    radio_devices: dict[str, rt.RadioDevice],
     is_transmitter: bool,
-    existing_rd: list[rt.RadioDevice],
     ps_groups: dict[str, ps.Group],
 ):
-    # Create or update point cloud for transmitters or receivers
-    position_np = np.array(position)[None, :]
     name = "Transmitters" if is_transmitter else "Receivers"
+    if not radio_devices:
+        if ps.has_point_cloud(name):
+            ps.get_point_cloud(name).remove()
+        return
 
-    # TODO: is there an easier way to get the existing points?
-    # existing_points = ps.get_point_cloud(name).get_position()
-    existing_points = [rd.position.numpy().T for rd in existing_rd.values()]
-    position_np = np.concatenate(existing_points + [position_np], axis=0)
-    struct = ps.register_point_cloud(
-        name,
-        position_np,
-        color=(DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR),
-    )
-    struct.add_to_group(ps_groups["rd"])
-
-
-def update_radio_device_polyscope(
-    existing_rd: list[rt.RadioDevice],
-    is_transmitter: bool,
-):
-    name = "Transmitters" if is_transmitter else "Receivers"
-    struct = ps.get_point_cloud(name)
     position_np = np.concatenate(
-        [rd.position.numpy().T for rd in existing_rd.values()], axis=0
+        [rd.position.numpy().T for rd in radio_devices.values()], axis=0
     )
-    struct.update_point_positions(position_np)
+    struct = None
+    if ps.has_point_cloud(name):
+        # Update existing point cloud (only possible if it has the same size)
+        candidate = ps.get_point_cloud(name)
+        if candidate.n_points() == position_np.shape[0]:
+            candidate.update_point_positions(position_np)
+            struct = candidate
+
+    if struct is None:
+        struct = ps.register_point_cloud(
+            name,
+            position_np,
+            color=(
+                DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR
+            ),
+        )
+        struct.add_to_group(ps_groups["rd"])
+
+    # Also update per-point colors
+    rd_colors = np.array([rd.color for rd in radio_devices.values()])
+    struct.add_color_quantity(
+        name + "_colors",
+        rd_colors,
+        enabled=True,
+    )
 
 
 def add_radio_map_to_polyscope(

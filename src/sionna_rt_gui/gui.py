@@ -8,7 +8,7 @@ from sionna import rt
 from .config import GuiConfig
 from .sionna_utils import (
     add_radio_map_to_polyscope,
-    add_radio_device_to_polyscope,
+    set_or_update_radio_devices_polyscope,
     add_scene_to_polyscope,
     get_built_in_scenes,
     add_paths_to_polyscope,
@@ -264,7 +264,7 @@ class SionnaRtGui:
     ):
         # TODO: controllable offset to the clicked surface (along normal?)
         existing_rd = (
-            self.scene.transmitters if is_transmitter else self.scene.receivers
+            self.scene._transmitters if is_transmitter else self.scene._receivers
         )
 
         # Add actual radio device to Sionna scene
@@ -275,8 +275,10 @@ class SionnaRtGui:
         )
         self.scene.add(new_rd)
 
-        add_radio_device_to_polyscope(
-            position, is_transmitter, existing_rd, self.ps_groups
+        set_or_update_radio_devices_polyscope(
+            existing_rd,
+            is_transmitter,
+            self.ps_groups,
         )
 
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
@@ -366,11 +368,15 @@ class SionnaRtGui:
             self.clear_selection()
             return False
 
-        if pick_result.structure_name == "Transmitters":
+        if pick_result.structure_name in "Transmitters":
             tx_i = pick_result.structure_data["index"]
             self.selected_object = self.scene.get(f"tx-{tx_i}")
             self.selected_type = SelectionType.Transmitter
-
+            return True
+        elif pick_result.structure_name in "Receivers":
+            rx_i = pick_result.structure_data["index"]
+            self.selected_object = self.scene.get(f"rx-{rx_i}")
+            self.selected_type = SelectionType.Receiver
             return True
 
         self.clear_selection()
