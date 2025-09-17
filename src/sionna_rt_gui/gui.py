@@ -301,15 +301,17 @@ class SionnaRtGui:
         However, if the number of transmitters has changed, the radio map will be
         completely removed (and re-computed if auto-updates are enabled).
         """
+        self.rm_accumulated_samples = 0
+        if self.radio_map is None:
+            return
+
         if len(self.scene._transmitters) != self.radio_map.num_tx:
             self.clear_radio_map()
             if self.cfg.radio_map.auto_update:
                 self.set_radio_map(self.compute_radio_map(), show=True)
             return
 
-        self.rm_accumulated_samples = 0
-        if self.radio_map is not None:
-            self.radio_map._pathgain_map *= 0.0
+        self.radio_map._pathgain_map *= 0.0
 
     def clear_radio_map(self):
         self.radio_map = None

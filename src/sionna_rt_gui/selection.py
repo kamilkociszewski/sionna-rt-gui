@@ -34,6 +34,9 @@ def selection_gui(
     selected_object: rt.SceneObject | None,
     selected_type: SelectionType | None,
 ):
+    if selected_object is None:
+        return
+
     # Place window in the top-right corner of the screen
     window_resolution = ps.get_window_size()
     w = 350
