@@ -5,7 +5,7 @@ import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
 
-from .animation import AnimationConfig, animation_gui
+from .animation import AnimationConfig, animation_gui, animation_tick
 from .antenna_array import AntennaArrayConfig, antenna_array_gui
 from .config import GuiConfig
 from .sionna_utils import (
@@ -103,20 +103,32 @@ class SionnaRtGui:
             self.cfg.scene_filename or built_in_scenes["simple_street_canyon_with_cars"]
         )
 
+        # --- Test data (for convenience)
         # TODO: remove this
-        if False:
+        if True:
             # Add some example transmitters
             for pos in [
-                [50, -10, 29 + 2.5],
-                [13, 13, 51 + 2.5],
+                # [50, -10, 29 + 2.5],
+                # [13, 13, 51 + 2.5],
                 [-34, -10, 22 + 2.5],
             ]:
                 self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
 
-                shifted = [pos[0] + 5, pos[1] + 15, pos[2] - 10]
-                self.add_radio_device(
-                    shifted, is_transmitter=False, allow_auto_update=False
-                )
+                # shifted = [pos[0] + 5, pos[1] + 15, pos[2] - 10]
+                # self.add_radio_device(
+                #     shifted, is_transmitter=False, allow_auto_update=False
+                # )
+
+            if False:
+                p = self.scene.get("tx-0").position.numpy().squeeze()
+                traj = self.animation_config.trajectories["tx-0"]
+                traj.add_point(p - [30, 10, 0])
+                traj.add_point(p + [30, 10, 0])
+                traj.enabled = True
+                self.animation_config.playing = True
+            if True:
+                self.selected_object = self.scene.get("tx-0")
+                self.selected_type = SelectionType.Transmitter
 
         if False:
             self.set_radio_map(self.compute_radio_map(), show=True)
@@ -188,6 +200,8 @@ class SionnaRtGui:
                     add_radio_map_to_polyscope(
                         "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
                     )
+
+        animation_tick(self, psim.GetIO().DeltaTime)
 
         self.gui()
         self.frame_i += 1
@@ -300,6 +314,13 @@ class SionnaRtGui:
             del self.animation_config.trajectories[object.name]
 
     def clear_radio_devices(self):
+        for name in self.scene._transmitters.keys():
+            if name in self.animation_config.trajectories:
+                del self.animation_config.trajectories[name]
+        for name in self.scene._receivers.keys():
+            if name in self.animation_config.trajectories:
+                del self.animation_config.trajectories[name]
+
         self.scene._transmitters.clear()
         self.scene._receivers.clear()
         for name in self.ps_groups["rd"].get_child_structure_names():
@@ -413,9 +434,13 @@ class SionnaRtGui:
         self.selected_type = None
         if ps.has_point_cloud("Gizmo"):
             ps.get_point_cloud("Gizmo").remove()
+        if ps.has_curve_network("Trajectory"):
+            ps.get_curve_network("Trajectory").remove()
 
     def gui(self):
         # TODO: set ImGui window title
+        # TODO: change GUI accent color to a non-default color.
+
         psim.SetWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
         psim.SetWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
 
@@ -571,6 +596,7 @@ class SionnaRtGui:
 
                 needs_visual_update = changed_cmap or changed_vmin or changed_vmax
 
+            # TODO: maybe this should be done automatically at the next tick
             if self.cfg.radio_map.auto_update and needs_update:
                 self.set_radio_map(self.compute_radio_map(), show=False)
             if needs_update or needs_visual_update:
@@ -578,9 +604,8 @@ class SionnaRtGui:
                     "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
                 )
 
-            # TODO: simulation parameters (diffuse, specular, sample count, height, etc)
             # TODO: plane / mesh picker (changes type of radio map)
-            # TODO: display parameters (transparency, colormap, etc)
+            # TODO: some way to move the radio map (at least the plane z offset)
 
             psim.Spacing()
 
@@ -659,6 +684,7 @@ class SionnaRtGui:
 
         if psim.CollapsingHeader("Rendering"):
             psim.Spacing()
+            # TODO: option to show/hide radio device orientations
 
             changed, self.cfg.use_vsync = psim.Checkbox("VSync", self.cfg.use_vsync)
             if changed:

@@ -1,32 +1,110 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from enum import Enum
 from dataclasses import dataclass, field
 import time
+import numpy as np
 
 import drjit as dr
+import polyscope as ps
 from polyscope import imgui as psim
+from sionna import rt
 
-# TODO: dataclass to store the animation trajectory + options & eval it
-# TODO: GUI pane in the selection window to edit the trajectory: add/remove points, edit their position.
+from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
+
+
+class LoopingMode(Enum):
+    NoLoop = 0
+    Mirror = 1
+    Repeat = 2
+
+
+LOOPING_MODE_NAMES = ["None", "Mirror", "Repeat"]
+assert len(LOOPING_MODE_NAMES) == len(LoopingMode)
+
+SPEED_BUTTON_COLOR = np.array((0.269, 0.474, 0.377, 1.0))
 
 
 @dataclass(kw_only=True)
 class Trajectory:
     # Whether to enable the trajectory
-    enabled: bool = True
-
-    points: list[dr.ScalarPoint3f] = field(default_factory=list)
+    enabled: bool = False
+    # Distance along the trajectory [m].
+    distance: float = 0.0
+    # Control points defining the polyline of the trajectory
+    # TODO: consider supporting changes in orientation as well (requires fancier interpolation)
+    points: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
     # Movement velocity [m/s]. Default is set based on a walking speed of 4 km/h.
     velocity: float = 1.11
-    # Whether the trajectory should start playing backwards when it reaches the end
-    is_mirroring: bool = True
+    # Looping mode index
+    looping_mode_i: int = LoopingMode.Mirror.value
+    # Whether the trajectory is currently playing in reverse, due e.g. to mirror looping mode.
+    backward: bool = False
+
+    # Cumulative distribution of distances along the trajectory, starting at zero.
+    # Has width equal to the number of points.
+    _cumulative_distances: list[float] = field(default_factory=list)
+
+    @property
+    def looping_mode(self) -> LoopingMode:
+        return LoopingMode(self.looping_mode_i)
+
+    def current_position_and_direction(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Return the current world-space position based on the distance along the trajectory."""
+        n_points = len(self.points)
+        if n_points == 0:
+            return None
+        if n_points == 1:
+            return self.points[0]
+
+        safe_dist = np.clip(self.distance, 0.0, self.total_distance())
+        end_idx = np.searchsorted(self._cumulative_distances, safe_dist, side="left")
+        start_idx = max(end_idx - 1, 0)
+        if start_idx == end_idx:
+            direction = np.zeros(3)
+            return self.points[start_idx], direction
+
+        start_dist = self._cumulative_distances[start_idx]
+        end_dist = self._cumulative_distances[end_idx]
+        t = (safe_dist - start_dist) / (end_dist - start_dist)
+
+        direction = self.points[end_idx] - self.points[start_idx]
+        pos = self.points[start_idx] + t * direction
+        return pos, direction / np.linalg.norm(direction)
+
+    def add_point(self, point: np.ndarray):
+        if len(self.points) == 0:
+            self.points = point.squeeze()[None, :]
+            self._cumulative_distances = [0.0]
+        else:
+            self.points = np.concatenate(
+                [self.points, point.squeeze()[None, :]], axis=0
+            )
+            dist_to_new = np.linalg.norm(self.points[-1] - self.points[-2])
+            self._cumulative_distances.append(
+                self._cumulative_distances[-1] + dist_to_new
+            )
+
+        # Snap to the latest added point
+        self.distance = self._cumulative_distances[-1]
+
+    def total_distance(self) -> float:
+        if len(self._cumulative_distances) == 0:
+            return 0.0
+        return self._cumulative_distances[-1]
+
+    def clear(self):
+        self.points.clear()
+
+    def __len__(self) -> int:
+        return len(self.points)
 
 
 @dataclass(kw_only=True)
 class AnimationConfig:
-    playing: bool = False
-    speed_multiplier: float = 1.0
+    playing: bool = True
+    speed_multiplier: float = 5.0
 
     # Time at which the animation started playing the first time (Unix timestamp)
     time_started: float | None = None
@@ -47,18 +125,18 @@ def animation_gui(gui: "SionnaRtGui"):
         if gui.animation_config.playing:
             gui.animation_config.time_started = time.time()
 
-    if psim.Button("0.5x"):
-        gui.animation_config.speed_multiplier = 0.5
-    psim.SameLine()
-    if psim.Button("1x"):
-        gui.animation_config.speed_multiplier = 1.0
-    psim.SameLine()
-    if psim.Button("2x"):
-        gui.animation_config.speed_multiplier = 2.0
-    psim.SameLine()
-    if psim.Button("10x"):
-        gui.animation_config.speed_multiplier = 10.0
-    psim.SameLine()
+    for speed in [0.5, 1.0, 2.0, 5.0, 10.0]:
+        is_current = gui.animation_config.speed_multiplier == speed
+        color = SPEED_BUTTON_COLOR.copy()
+        if not is_current:
+            color[:3] *= 0.5
+
+        psim.PushStyleColor(psim.ImGuiCol_Button, color)
+        if psim.Button(f"{speed}x"):
+            gui.animation_config.speed_multiplier = speed
+        psim.PopStyleColor()
+
+        psim.SameLine()
     psim.Text(f"Speed: {gui.animation_config.speed_multiplier:.1f}x")
 
 
@@ -71,12 +149,48 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
     # TODO: add/remove/split trajectory points
     # TODO: movement gizmo for the trajectory points
 
+    if psim.Button("Add current position"):
+        traj.add_point(object.position.numpy())
+
+    psim.SameLine()
+    if psim.Button("Clear"):
+        traj.clear()
+
+    has_points = len(traj) > 0
+    psim.BeginDisabled(not has_points)
+    _, traj.enabled = psim.Checkbox("Enabled##trajectory", traj.enabled)
+
+    # TODO: allow scrubbing along the trajectory (need to trigger all necessary updates)
+    psim.BeginDisabled(True)
+    _, traj.distance = psim.SliderFloat(
+        "Position [m]", traj.distance, 0.0, traj.total_distance()
+    )
+    psim.EndDisabled()
+
     _, traj.velocity = psim.SliderFloat("Velocity [m/s]", traj.velocity, 0.1, 10.0)
 
-    _, traj.is_mirroring = psim.Checkbox("Mirror", traj.is_mirroring)
+    _, traj.looping_mode_i = psim.Combo(
+        "Loop##trajectory", traj.looping_mode_i, LOOPING_MODE_NAMES
+    )
+    if traj.looping_mode != LoopingMode.Mirror:
+        # Only the mirror mode can play in reverse
+        traj.backward = False
+    psim.EndDisabled()
+
+    if has_points:
+        # Draw a preview of the trajectory
+        _ = ps.register_curve_network(
+            "Trajectory",
+            traj.points,
+            edges="line",
+            enabled=True,
+            color=(0.15, 0.15, 0.15),
+            radius=0.001,
+            transparency=0.7,
+        )
 
 
-def animation_tick(gui: "SionnaRtGui"):
+def animation_tick(gui: "SionnaRtGui", time_delta: float):
     """
     Tick the animation.
     """
@@ -84,7 +198,71 @@ def animation_tick(gui: "SionnaRtGui"):
     if not cfg.playing:
         return
 
-    # for traj in gui.animation_config.trajectories.values():
-    #     if traj.is_mirroring:
-    #         traj.points.reverse()
-    #     traj.points.append(traj.points[-1] + traj.velocity * time.time())
+    tx_changed = False
+    rx_changed = False
+    for obj_name, traj in gui.animation_config.trajectories.items():
+        if not traj.enabled:
+            continue
+        if len(traj) == 0:
+            continue
+
+        distance_delta = time_delta * cfg.speed_multiplier * traj.velocity
+        total_distance = traj.total_distance()
+        traj.distance += (-1 if traj.backward else 1) * distance_delta
+
+        if traj.distance <= 0:
+            match traj.looping_mode:
+                case LoopingMode.NoLoop:
+                    traj.distance = 0.0
+                case LoopingMode.Mirror:
+                    traj.backward = False
+                case LoopingMode.Repeat:
+                    traj.distance = total_distance
+                case _:
+                    raise ValueError(f"Invalid looping mode: {traj.looping_mode}")
+        elif traj.distance > total_distance:
+            match traj.looping_mode:
+                case LoopingMode.NoLoop:
+                    traj.distance = total_distance
+                case LoopingMode.Mirror:
+                    traj.backward = True
+                case LoopingMode.Repeat:
+                    traj.distance = 0.0
+                case _:
+                    raise ValueError(f"Invalid looping mode: {traj.looping_mode}")
+
+        # Protection in case of large single-frame jumps
+        traj.distance = np.clip(traj.distance, 0.0, total_distance)
+
+        # Update the object position accordingly
+        obj = gui.scene.get(obj_name)
+        obj.position, direction = traj.current_position_and_direction()
+        # Velocity for doppler
+        obj.velocity = direction * traj.velocity
+        dr.make_opaque(obj.position, obj.velocity)
+        if isinstance(obj, rt.Transmitter):
+            tx_changed = True
+        elif isinstance(obj, rt.Receiver):
+            rx_changed = True
+
+    if tx_changed or rx_changed:
+        if tx_changed:
+            set_or_update_radio_devices_polyscope(
+                gui.scene.transmitters,
+                is_transmitter=True,
+                ps_groups=gui.ps_groups,
+            )
+            # Note: receivers don't affect radio maps.
+            gui.reset_radio_map()
+        if rx_changed:
+            set_or_update_radio_devices_polyscope(
+                gui.scene.receivers,
+                is_transmitter=False,
+                ps_groups=gui.ps_groups,
+            )
+
+        if gui.cfg.paths.auto_update:
+            # TODO: probably should move this to a little method
+            gui.clear_paths()
+            gui.paths = gui.compute_paths()
+            add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
