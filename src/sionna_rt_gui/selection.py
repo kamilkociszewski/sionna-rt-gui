@@ -10,6 +10,7 @@ import polyscope.imgui as psim
 from sionna import rt
 from sionna.rt.utils.geometry import rotation_matrix
 
+from .animation import trajectory_gui
 from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
 
 
@@ -86,7 +87,14 @@ def selection_gui(
 
             psim.TreePop()
 
-        # Transformation gizmo
+        psim.Spacing()
+        if psim.TreeNodeEx(
+            "Animation:##selection", psim.ImGuiTreeNodeFlags_DefaultOpen
+        ):
+            trajectory_gui(gui, selected_object)
+            psim.TreePop()
+
+        # --- Transformation gizmo
         # TODO: make RD's orientation visible while the gizmo is shown.
         if not ps.has_point_cloud("Gizmo"):
             struct = ps.register_point_cloud(
@@ -134,14 +142,7 @@ def selection_gui(
 
     psim.Spacing()
     if psim.Button(f"Remove {selected_type.value.lower()}"):
-        match selected_type:
-            case SelectionType.Transmitter:
-                del gui.scene._transmitters[selected_object.name]
-            case SelectionType.Receiver:
-                del gui.scene._receivers[selected_object.name]
-            case _:
-                print(f"[!] Unexpected selection type: {selected_type}")
-                pass
+        gui.remove_object(selected_object, selected_type)
         rd_update_needed = True
         gui.clear_selection()
 

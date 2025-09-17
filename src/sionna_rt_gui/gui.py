@@ -5,8 +5,9 @@ import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
 
-from .config import GuiConfig
+from .animation import AnimationConfig, animation_gui
 from .antenna_array import AntennaArrayConfig, antenna_array_gui
+from .config import GuiConfig
 from .sionna_utils import (
     add_radio_map_to_polyscope,
     set_or_update_radio_devices_polyscope,
@@ -41,6 +42,9 @@ class SionnaRtGui:
 
         # Paths results
         self.paths: rt.Paths | None = None
+
+        # --- Animation state
+        self.animation_config: AnimationConfig = AnimationConfig()
 
         # --- Inputs state
         self.last_mouse_pos: mi.ScalarVector2f | None = None
@@ -281,6 +285,19 @@ class SionnaRtGui:
         if allow_auto_update and self.cfg.paths.auto_update:
             self.paths = self.compute_paths()
             add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
+
+    def remove_object(self, object: rt.SceneObject, selected_type: SelectionType):
+        match selected_type:
+            case SelectionType.Transmitter:
+                del self.scene._transmitters[object.name]
+            case SelectionType.Receiver:
+                del self.scene._receivers[object.name]
+            case _:
+                print(f"[!] Unexpected selection type: {selected_type}")
+                pass
+
+        if object.name in self.animation_config.trajectories:
+            del self.animation_config.trajectories[object.name]
 
     def clear_radio_devices(self):
         self.scene._transmitters.clear()
@@ -634,6 +651,10 @@ class SionnaRtGui:
             if needs_update or needs_visual_update:
                 add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
+            psim.Spacing()
+
+        if psim.CollapsingHeader("Animation"):
+            animation_gui(self)
             psim.Spacing()
 
         if psim.CollapsingHeader("Rendering"):
