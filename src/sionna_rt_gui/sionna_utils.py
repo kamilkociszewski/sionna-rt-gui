@@ -3,7 +3,7 @@ import numpy as np
 import polyscope as ps
 from sionna import rt
 from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
-
+from sionna.rt.utils.geometry import rotation_matrix
 from .config import RadioMapConfig, PathsConfig
 
 
@@ -88,6 +88,26 @@ def set_or_update_radio_devices_polyscope(
             ),
         )
         struct.add_to_group(ps_groups["rd"])
+
+    # Update orientations
+    rd_orientations = np.array(
+        [
+            # TODO: maybe use this when the new version of Mitsuba is released
+            # dr.quat_apply(
+            #     dr.euler_to_quat(rd.orientation.numpy().T[0]),
+            #     mi.ScalarVector3f(0, 0, 1),
+            # )
+            rotation_matrix(rd.orientation).numpy()[:, 0].T[0]
+            for rd in radio_devices.values()
+        ]
+    )
+    struct.add_vector_quantity(
+        name + "_orientation",
+        rd_orientations,
+        color=(0.6, 0.6, 0.6),
+        enabled=True,
+        # length=0.5,
+    )
 
     # Also update per-point colors
     rd_colors = np.array([rd.color for rd in radio_devices.values()])

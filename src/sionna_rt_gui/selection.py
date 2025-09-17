@@ -8,6 +8,7 @@ import numpy as np
 import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
+from sionna.rt.utils.geometry import rotation_matrix
 
 from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
 
@@ -74,6 +75,7 @@ def selection_gui(
             psim.TreePop()
 
         # Transformation gizmo
+        # TODO: make RD's orientation visible while the gizmo is shown.
         if not ps.has_point_cloud("Gizmo"):
             struct = ps.register_point_cloud(
                 "Gizmo", rd.position.numpy().T, enabled=False
@@ -98,8 +100,12 @@ def selection_gui(
 
             # Apply transform to the selected object
             rd.position = mi.Point3f(to_world[:3, -1])
-            # TODO: apply rotation too
-
+            target = to_world[:3, -1] + (
+                to_world[:3, 0] / np.linalg.norm(to_world[:3, 0])
+            )
+            rd.look_at(target)
+            # For debugging:
+            # ps.register_point_cloud("Gizmo target", target[None, :], color=(1, 0, 1))
             dr.make_opaque(rd.position, rd.orientation)
 
             rd_update_needed = True
@@ -114,10 +120,12 @@ def selection_gui(
                 add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
 
         else:
-            # Reset position of gizmo to match the selected object
-            to_world = GIZMO_SCALE * np.eye(4)
+            # Reset position & orientation of gizmo to match the selected object
+            to_world = np.eye(4)
+            to_world[:3, :3] = (
+                GIZMO_SCALE * rotation_matrix(rd.orientation).numpy()[..., 0]
+            )
             to_world[:3, -1] = rd.position.numpy().squeeze()
-            to_world[-1, -1] = 1
             struct.set_transform(to_world)
 
         gui.prev_gizmo_to_world = to_world
