@@ -1,3 +1,4 @@
+import drjit as dr
 import mitsuba as mi
 import numpy as np
 import matplotlib.pyplot as plt
@@ -91,7 +92,7 @@ class SionnaRtGui:
         self.reset_and_setup_structures()
 
         # TODO: add slice plane controls (Polyscope has built-in support)
-        # TODO: add scene drag & drop support
+        # TODO: add scene drag & drop support (load the dropped XML file)
 
         # # Apply default camera pose
         # ps.set_automatically_compute_scene_extents(False)
@@ -175,8 +176,42 @@ class SionnaRtGui:
 
         add_scene_to_polyscope(self.scene, self.ps_groups)
         if recenter_camera:
-            # TODO: automatically zoom to fill the screen, if scene has changed
-            ps.set_view_center(self.scene.mi_scene.bbox().center(), fly_to=False)
+            self.recenter_camera()
+
+    def recenter_camera(self):
+        """Move the camera to a position where most of the scene is visible."""
+        fov_vertical_deg = ps.get_view_camera_parameters().get_fov_vertical_deg()
+        bbox = self.scene.mi_scene.bbox()
+
+        center = bbox.center()
+        extents = bbox.extents()
+
+        # Center of the turntable navigation
+        ps.set_view_center(center, fly_to=False)
+
+        # Calculate the required distance to fit the scene in the vertical FOV
+        # We use the larger of height or diagonal extent for safety margin
+        scene_diagonal = np.linalg.norm(extents)
+        scene_size = max(extents.z, scene_diagonal * 0.8)  # 0.8 for some margin
+
+        # Convert FOV to radians and calculate required distance
+        fov_vertical_rad = np.radians(fov_vertical_deg)
+        distance = scene_size / (2.0 * np.tan(0.5 * fov_vertical_rad))
+        distance = distance * 0.95
+
+        # Position camera at a reasonable viewing angle.
+        # Angle above horizontal
+        es, ec = dr.sincos(np.radians(45))
+        # Angle from positive X axis
+        zs, zc = dr.sincos(np.radians(0))
+        origin = [
+            center.x + distance * ec * zc,
+            center.y + distance * ec * zs,
+            center.z + distance * es,
+        ]
+        target = [center.x - 0.2 * (center.x - origin[0]), center.y, center.z]
+
+        ps.look_at(origin, target)
 
     # ------------------------
 
@@ -291,7 +326,7 @@ class SionnaRtGui:
         set_or_update_radio_devices_polyscope(
             existing_rd,
             is_transmitter,
-            self.ps_groups,
+            self,
         )
 
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
@@ -399,6 +434,10 @@ class SionnaRtGui:
         # R: reload code
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("R")), repeat=False):
             self.code_reload_requested = True
+
+        # F: recenter camera
+        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("F")), repeat=False):
+            self.recenter_camera()
 
         # Exit
         if (

@@ -125,7 +125,7 @@ def animation_gui(gui: "SionnaRtGui"):
         if gui.animation_config.playing:
             gui.animation_config.time_started = time.time()
 
-    for speed in [0.5, 1.0, 2.0, 5.0, 10.0]:
+    for speed in [0.5, 1.0, 2.0, 5.0, 10.0, 50.0]:
         is_current = gui.animation_config.speed_multiplier == speed
         color = SPEED_BUTTON_COLOR.copy()
         if not is_current:
