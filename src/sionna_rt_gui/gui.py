@@ -69,7 +69,6 @@ class SionnaRtGui:
         ps.set_program_name(self.cfg.title)
         # Window size and position will be loaded from the last run from `.polyscope.ini`
         ps.set_use_prefs_file(True)
-        # ps.set_navigation_style("none")
         ps.set_enable_vsync(cfg.use_vsync)
         ps.set_max_fps(-1)
         ps.set_user_gui_is_on_right_side(False)
@@ -101,7 +100,11 @@ class SionnaRtGui:
         # Load scene
         # TODO: preserve currently-selected scene across reloads
         self.load_scene(
-            self.cfg.scene_filename or built_in_scenes["simple_street_canyon_with_cars"]
+            self.cfg.scene_filename
+            # or built_in_scenes["munich"]
+            or built_in_scenes["simple_street_canyon_with_cars"],
+            # If the program was just reloaded (live coding), don't move the camera
+            recenter_camera=not was_initialized,
         )
 
         # --- Test data (for convenience)
@@ -140,6 +143,7 @@ class SionnaRtGui:
     def reset_and_setup_structures(self):
         # Clear Sionna state
         self.clear_radio_map()
+        self.clear_selection()
         self.paths = None
 
         # Clear Polyscope state
@@ -216,7 +220,6 @@ class SionnaRtGui:
     # ------------------------
 
     def tick(self):
-        # TODO: automatic refinement & accumulation of the radio map, if enabled
         self.process_inputs()
 
         # Automatic refinement of the radio map

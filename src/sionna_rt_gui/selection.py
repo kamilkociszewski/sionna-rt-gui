@@ -22,7 +22,7 @@ class SelectionType(StrEnum):
     Mesh = "Mesh"
 
 
-GIZMO_SCALE = 0.3
+GIZMO_SCALE = 40
 
 
 def vec_str(vec: np.ndarray) -> str:
@@ -119,12 +119,13 @@ def selection_gui(
         to_world = struct.get_transform()
 
         # Gizmo moved since the last frame
+        gizmo_scale = GIZMO_SCALE / ps.get_length_scale()
         if (gui.prev_gizmo_to_world is not None) and not np.allclose(
             gui.prev_gizmo_to_world, to_world
         ):
             # Remove scaling
             to_world[:3, :3] = (
-                GIZMO_SCALE
+                gizmo_scale
                 * to_world[:3, :3]
                 / np.linalg.norm(to_world[:3, :3], axis=0)
             )
@@ -145,7 +146,7 @@ def selection_gui(
             # Reset position & orientation of gizmo to match the selected object
             to_world = np.eye(4)
             to_world[:3, :3] = (
-                GIZMO_SCALE * rotation_matrix(rd.orientation).numpy()[..., 0]
+                gizmo_scale * rotation_matrix(rd.orientation).numpy()[..., 0]
             )
             to_world[:3, -1] = rd.position.numpy().squeeze()
             struct.set_transform(to_world)
@@ -160,7 +161,7 @@ def selection_gui(
         set_or_update_radio_devices_polyscope(
             gui.scene.transmitters if is_transmitter else gui.scene.receivers,
             is_transmitter=is_transmitter,
-            ps_groups=gui.ps_groups,
+            gui=gui,
         )
         if is_transmitter:
             # Note: receivers don't affect radio maps.

@@ -4,6 +4,8 @@ import polyscope as ps
 from sionna import rt
 from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLOR
 from sionna.rt.utils.geometry import rotation_matrix
+from sionna.rt.utils.render import scene_scale
+
 from .config import RadioMapConfig, PathsConfig
 
 
@@ -60,7 +62,7 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
 def set_or_update_radio_devices_polyscope(
     radio_devices: dict[str, rt.RadioDevice],
     is_transmitter: bool,
-    ps_groups: dict[str, ps.Group],
+    gui: "SionnaRtGui",
 ):
     name = "Transmitters" if is_transmitter else "Receivers"
     if not radio_devices:
@@ -80,6 +82,7 @@ def set_or_update_radio_devices_polyscope(
             struct = candidate
 
     if struct is None:
+        display_radius = max(0.001 * scene_scale(gui.scene), 1)
         struct = ps.register_point_cloud(
             name,
             position_np,
@@ -87,7 +90,8 @@ def set_or_update_radio_devices_polyscope(
                 DEFAULT_TRANSMITTER_COLOR if is_transmitter else DEFAULT_RECEIVER_COLOR
             ),
         )
-        struct.add_to_group(ps_groups["rd"])
+        struct.set_radius(display_radius, relative=False)
+        struct.add_to_group(gui.ps_groups["rd"])
 
     # Update orientations
     rd_orientations = np.array(
@@ -101,12 +105,15 @@ def set_or_update_radio_devices_polyscope(
             for rd in radio_devices.values()
         ]
     )
+    sphere_radius = struct.get_radius()
     struct.add_vector_quantity(
         name + "_orientation",
         rd_orientations,
         color=(0.6, 0.6, 0.6),
         enabled=True,
-        # length=0.5,
+        # Note: these are relative to the Polyscope scene scale
+        radius=0.3 * sphere_radius / ps.get_length_scale(),
+        length=2.5 * sphere_radius / ps.get_length_scale(),
     )
 
     # Also update per-point colors

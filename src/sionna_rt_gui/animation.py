@@ -250,7 +250,7 @@ def animation_tick(gui: "SionnaRtGui", time_delta: float):
             set_or_update_radio_devices_polyscope(
                 gui.scene.transmitters,
                 is_transmitter=True,
-                ps_groups=gui.ps_groups,
+                gui=gui,
             )
             # Note: receivers don't affect radio maps.
             gui.reset_radio_map()
@@ -258,7 +258,7 @@ def animation_tick(gui: "SionnaRtGui", time_delta: float):
             set_or_update_radio_devices_polyscope(
                 gui.scene.receivers,
                 is_transmitter=False,
-                ps_groups=gui.ps_groups,
+                gui=gui,
             )
 
         if gui.cfg.paths.auto_update:
