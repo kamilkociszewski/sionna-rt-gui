@@ -9,6 +9,7 @@ from sionna import rt
 from .animation import AnimationConfig, animation_gui, animation_tick
 from .antenna_array import AntennaArrayConfig, antenna_array_gui
 from .config import GuiConfig
+from .rendering import render_scene, RenderingMode
 from .sionna_utils import (
     add_radio_map_to_polyscope,
     set_or_update_radio_devices_polyscope,
@@ -114,7 +115,7 @@ class SionnaRtGui:
             for pos in [
                 # [50, -10, 29 + 2.5],
                 # [13, 13, 51 + 2.5],
-                [-34, -10, 22 + 2.5],
+                [40, -10, 30 + 2.5],
             ]:
                 self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
 
@@ -140,11 +141,17 @@ class SionnaRtGui:
             self.paths = self.compute_paths()
             add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
+        if True:
+            self.render_cache: dict = None
+            self.ray_traced_img: mi.TensorXf | None = None
+
     def reset_and_setup_structures(self):
         # Clear Sionna state
         self.clear_radio_map()
         self.clear_selection()
         self.paths = None
+        self.render_cache = None
+        self.ray_traced_img = None
 
         # Clear Polyscope state
         ps.remove_all_structures()
@@ -221,6 +228,34 @@ class SionnaRtGui:
 
     def tick(self):
         self.process_inputs()
+
+        if self.cfg.rendering_mode == RenderingMode.RAY_TRACING:
+            self.ray_traced_img, self.render_cache = render_scene(
+                self.scene, self.cfg.rendering_mode, cache=self.render_cache
+            )
+            # TODO: setup direct buffer write with GL interop, etc
+            # TODO: setup Polyscope-based compositing with correct depth
+            # TODO: accumulate rendering samples (multiple frames)
+            # TODO: optix-based denoising, if available.
+            # ps.add_raw_color_alpha_render_image_quantity(
+            ps.add_color_alpha_image_quantity(
+                "ray_traced_img",
+                values=self.ray_traced_img.numpy(),
+                # depth_values=np.zeros((256, 256)),
+                # color_values=self.ray_traced_img.numpy(),
+                enabled=True,
+                image_origin="lower_left",
+                # image_origin="upper_left",
+            )
+
+            # # TODO: remove this
+            # # This experiment tells us that:
+            # # - `get_camera_view_matrix()` is the inverse of camera_to_world
+            # # - In the Polyscope camera frame, -z is forward, +x goes to the right, +y goes up
+            # cam_to_world = np.linalg.inv(ps.get_camera_view_matrix())
+            # debug_pos = cam_to_world @ np.array([0, 0, -100, 1])
+            # debug_pos = debug_pos[None, :3]
+            # ps.register_point_cloud("debug_pos", debug_pos, radius=0.01)
 
         # Automatic refinement of the radio map
         if self.radio_map is not None:
@@ -454,7 +489,7 @@ class SionnaRtGui:
 
     def process_pick_result(self, pick_result: ps.PickResult) -> bool:
         # TODO: how to ignore clicks that hit the GUI?
-        if not pick_result.is_hit:
+        if not pick_result.is_hit or "index" not in pick_result.structure_data:
             self.clear_selection()
             return False
 

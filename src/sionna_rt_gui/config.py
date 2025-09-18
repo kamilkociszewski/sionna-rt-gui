@@ -4,8 +4,9 @@ from dataclasses import dataclass, field
 
 import yaml
 
-import mitsuba as mi
 from omegaconf import OmegaConf
+
+from .rendering import RenderingMode
 
 
 @dataclass(kw_only=True)
@@ -68,6 +69,10 @@ class GuiConfig:
 
     scene_filename: str | None = None
     loaded_from_snapshot: bool = False
+
+    # Rendering
+    # TODO: auto-disable ray tracing if LLVM mode?
+    rendering_mode: RenderingMode = RenderingMode.RAY_TRACING
 
     # Radio map
     radio_map: RadioMapConfig = field(default_factory=lambda: RadioMapConfig())
