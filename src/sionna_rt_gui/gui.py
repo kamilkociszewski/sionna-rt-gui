@@ -503,7 +503,11 @@ class SionnaRtGui:
         )
 
         # Ctrl + left/right click: add transmitter/receiver
-        if imgui_io.KeyCtrl and (has_left_click or has_right_click):
+        if (
+            imgui_io.KeyCtrl
+            and (has_left_click or has_right_click)
+            and not imgui_io.KeyShift
+        ):
             is_transmitter = imgui_io.MouseClicked[0]
             # TODO: configurable placement offset along the normal
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
