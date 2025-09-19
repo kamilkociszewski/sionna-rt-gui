@@ -308,6 +308,7 @@ class SionnaRtGui:
         self.render_cache = None
         self.ray_traced_img = None
         self.ray_traced_depth = None
+        self.rendering_accumulated_samples = 0
 
         # TODO: more robust way to get this info from Polyscop
         if had_image:

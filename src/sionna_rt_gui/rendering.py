@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any
 
 import drjit as dr
@@ -17,19 +16,99 @@ RENDERING_MODE_NAMES = ["Rasterization", "Ray tracing"]
 assert len(RENDERING_MODE_NAMES) == len(RenderingMode)
 
 
-def _render_scene(
+def setup_scene_for_rendering(
     cfg: RenderingConfig,
     scene: rt.Scene,
+) -> dict[str, Any]:
+    from mitsuba.python.util import _RenderOp
+
+    assert (
+        "_rgb" in mi.variant()
+    ), "This function is supposed to be called with an RGB variant."
+
+    # TODO: adapt if the window is resized
+    sensor = mi.load_dict(
+        {
+            "type": "perspective",
+            "fov": ps.get_view_camera_parameters().get_fov_vertical_deg(),
+            "fov_axis": "y",
+            # TODO: adapt automatically based on scene size
+            "near_clip": 0.1,
+            "far_clip": 10000,
+            "film": {
+                "type": "hdrfilm",
+                "pixel_format": "rgba",
+                "width": int(cfg.default_resolution[0] * cfg.relative_resolution),
+                "height": int(cfg.default_resolution[1] * cfg.relative_resolution),
+                "filter": {
+                    "type": "box",
+                },
+            },
+        }
+    )
+
+    # NOTE: this assumes that the scene does *not* change between renders!
+    visual_scene_dict = visual_scene_from_wireless_scene(
+        scene,
+        sensor=sensor,
+        max_depth=8,
+        envmap=cfg.envmap,
+        #  clip_at: float | None = None,
+        #  clip_plane_orientation: tuple[float, float, float] = (0, 0, -1),
+        #  envmap: str | None = None,
+        lighting_scale=1.25,
+        #  exclude_mesh_ids: set[str] = None
+    )
+    visual_scene = mi.load_dict(visual_scene_dict)
+
+    # Hack for better sampling: zero-out the bottom half or so of the envmap,
+    # since our scenes always have a ground plane.
+    params = mi.traverse(visual_scene)
+    k = "emitter.data"
+    if k in params:
+        # Height, width, channels
+        h, *_ = dr.shape(params[k])
+        params[k][int(0.6 * h) :, :, :] = 0
+
+    integrator = mi.load_dict(
+        {
+            "type": "aov",
+            "aovs": "dd.y:depth",
+            "rgb": {
+                "type": "path",
+                "hide_emitters": True,
+                # "hide_emitters": False,
+                "max_depth": 5,
+            },
+        }
+    )
+
+    return {
+        "sensor": sensor,
+        "visual_scene": visual_scene,
+        "integrator": integrator,
+        "render_op": _RenderOp(),
+    }
+
+
+def _render_scene(
+    cfg: RenderingConfig,
     seed: int,
     camera_changed: bool,
     cache: dict[str, Any],
 ) -> tuple[mi.TensorXf, mi.TensorXf, dict[str, Any]]:
+    """
+    Note that even though this function does RGB rendering, we do *not*
+    need to switch variant, because all the relevant objects were already
+    created using the RGB variant above.
+    """
 
-    sensor = cache.get("sensor")
-    visual_scene = cache.get("visual_scene")
-    integrator = cache.get("integrator")
+    sensor = cache["sensor"]
+    visual_scene = cache["visual_scene"]
+    integrator = cache["integrator"]
+    render_op = cache["render_op"]
 
-    if sensor is None or camera_changed:
+    if camera_changed:
         # Camera to world transform
         view_pose = ps.get_camera_view_matrix()
 
@@ -48,6 +127,7 @@ def _render_scene(
         #   left-handed (+y up, -z forward, +x right) to Mitsuba's right-handed
         #   system (y up, -z forward, +x left).
         # TODO: double-check the comment above for correctness.
+        # TODO: do this in a single go.
         to_world = (
             mi.ScalarTransform4f(view_translation)
             @ mi.ScalarTransform4f(
@@ -61,79 +141,21 @@ def _render_scene(
             @ mi.ScalarTransform4f(view_rotation)
         )
 
-    if sensor is None:
-        # TODO: adapt if the window is resized
-        sensor = mi.load_dict(
-            {
-                "type": "perspective",
-                "fov": ps.get_view_camera_parameters().get_fov_vertical_deg(),
-                "fov_axis": "y",
-                # TODO: adapt automatically based on scene size
-                "near_clip": 0.1,
-                "far_clip": 10000,
-                "to_world": to_world,
-                "film": {
-                    "type": "hdrfilm",
-                    "pixel_format": "rgba",
-                    "width": int(cfg.default_resolution[0] * cfg.relative_resolution),
-                    "height": int(cfg.default_resolution[1] * cfg.relative_resolution),
-                    "filter": {
-                        "type": "box",
-                    },
-                },
-            }
-        )
-    elif camera_changed:
         params = mi.traverse(sensor)
         params["to_world"] = to_world
         params.update()
 
-    if visual_scene is None:
-        # NOTE: this assumes that the scene does *not* change between renders!
-        visual_scene_dict = visual_scene_from_wireless_scene(
-            scene,
-            sensor=sensor,
-            max_depth=8,
-            # # TODO: ship a nice one by default (low-res should be enough)
-            # envmap="/home/merlin/nvidia/mitsuba3-next/tutorials/scenes/textures/envmap.exr",
-            #  clip_at: float | None = None,
-            #  clip_plane_orientation: tuple[float, float, float] = (0, 0, -1),
-            #  envmap: str | None = None,
-            #  lighting_scale: float = 1.0,
-            #  exclude_mesh_ids: set[str] = None
-        )
-        visual_scene = mi.load_dict(visual_scene_dict)
-
-        # Hack for better sampling: zero-out the bottom half or so of the envmap,
-        # since our scenes always have a ground plane.
-        params = mi.traverse(visual_scene)
-        k = "emitter.data"
-        if k in params:
-            # Height, width, channels
-            h, *_ = dr.shape(params[k])
-            params[k][int(0.6 * h) :, :, :] = 0
-
-    if integrator is None:
-        integrator = mi.load_dict(
-            {
-                "type": "aov",
-                "aovs": "dd.y:depth",
-                "rgb": {
-                    "type": "path",
-                    "hide_emitters": True,
-                    # "hide_emitters": False,
-                    "max_depth": 5,
-                },
-            }
-        )
-
-    # TODO: use kernel freezing for this
-    img = mi.render(
-        visual_scene,
+    # Note: we can't directly use `mi.render()` because of a couple of asserts on the
+    # types of integrator, sensor, etc.
+    # TODO: use kernel freezing
+    img = render_op.eval(
+        scene=visual_scene,
         sensor=sensor,
+        _=None,
+        params=None,
         integrator=integrator,
-        spp=cfg.spp_per_frame,
-        seed=seed,
+        seed=(seed, None),
+        spp=(cfg.spp_per_frame, None),
     )
     img = img[..., :4]
     # TODO: pre-multiply alpha to avoid fringing?
@@ -142,9 +164,6 @@ def _render_scene(
     # TODO: depth convention mismatch with Polyscope?
     depth = img[..., -1]
 
-    cache["sensor"] = sensor
-    cache["visual_scene"] = visual_scene
-    cache["integrator"] = integrator
     return img, depth, cache
 
 
@@ -158,7 +177,8 @@ def render_scene(
     assert cfg.mode == RenderingMode.RAY_TRACING
 
     if cache is None:
-        cache = {}
+        with mi.scoped_set_variant("cuda_ad_rgb", "llvm_ad_rgb"):
+            cache = setup_scene_for_rendering(cfg, scene)
+        camera_changed = True
 
-    with mi.scoped_set_variant("cuda_ad_rgb", "llvm_ad_rgb"):
-        return _render_scene(cfg, scene, seed, camera_changed, cache=cache)
+    return _render_scene(cfg, seed, camera_changed, cache=cache)
