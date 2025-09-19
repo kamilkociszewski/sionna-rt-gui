@@ -58,21 +58,34 @@ class PathsConfig:
 
 
 @dataclass(kw_only=True)
+class RenderingConfig:
+    mode: RenderingMode = RenderingMode.RAY_TRACING
+    # Full resolution of the window
+    default_resolution: tuple[int, int] = (1920, 1080)
+    # Relative resolution for ray traced rendering
+    relative_resolution: float = 0.5
+    spp_per_frame: int = 8
+    max_accumulated_spp: int = 512
+
+
+@dataclass(kw_only=True)
 class GuiConfig:
     title: str = "Sionna RT"
     config_path: str
 
+    show_gui: bool = True
+    show_polyscope_gui: bool = False
     use_live_reload: bool = False
     use_vsync: bool = True
     background_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    default_resolution: tuple[int, int] = (1920, 1080)
 
     scene_filename: str | None = None
     loaded_from_snapshot: bool = False
 
     # Rendering
     # TODO: auto-disable ray tracing if LLVM mode?
-    rendering_mode: RenderingMode = RenderingMode.RAY_TRACING
+    # TODO: relative rendering resolution picker (10%, 25%, 50%, 100%)
+    rendering: RenderingConfig = field(default_factory=lambda: RenderingConfig())
 
     # Radio map
     radio_map: RadioMapConfig = field(default_factory=lambda: RadioMapConfig())

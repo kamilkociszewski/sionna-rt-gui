@@ -45,6 +45,13 @@ class SionnaRtGui:
         # Paths results
         self.paths: rt.Paths | None = None
 
+        # --- Rendering
+        self.render_cache: dict = None
+        self.ray_traced_img: mi.TensorXf | None = None
+        self.ray_traced_depth: mi.TensorXf | None = None
+        self.previous_camera_pose: np.ndarray = ps.get_camera_view_matrix()
+        self.rendering_accumulated_samples: int = 0
+
         # --- Animation state
         self.animation_config: AnimationConfig = AnimationConfig()
 
@@ -63,7 +70,6 @@ class SionnaRtGui:
         # Can be used to derive e.g. random seeds.
         self.ps_groups: dict[str, ps.Group] = {}
         self.frame_i: int = 0
-        self.build_default_ps_gui: bool = False
         self.was_mouse_dragging: bool = False
         self.prev_gizmo_to_world: np.ndarray | None = None
         # Pre-init settings
@@ -74,11 +80,11 @@ class SionnaRtGui:
         ps.set_max_fps(-1)
         ps.set_user_gui_is_on_right_side(False)
         ps.set_verbosity(1)
-        ps.set_build_default_gui_panels(self.build_default_ps_gui)
+        ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
         ps.set_background_color(self.cfg.background_color)
         ps.set_ground_plane_mode("none")
         ps.set_window_resizable(True)
-        ps.set_window_size(*self.cfg.default_resolution)
+        ps.set_window_size(*self.cfg.rendering.default_resolution)
         ps.set_give_focus_on_show(True)
         ps.set_transparency_mode("pretty")
 
@@ -141,17 +147,12 @@ class SionnaRtGui:
             self.paths = self.compute_paths()
             add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
 
-        if True:
-            self.render_cache: dict = None
-            self.ray_traced_img: mi.TensorXf | None = None
-
     def reset_and_setup_structures(self):
         # Clear Sionna state
         self.clear_radio_map()
         self.clear_selection()
         self.paths = None
-        self.render_cache = None
-        self.ray_traced_img = None
+        self.clear_ray_traced_image()
 
         # Clear Polyscope state
         ps.remove_all_structures()
@@ -229,33 +230,48 @@ class SionnaRtGui:
     def tick(self):
         self.process_inputs()
 
-        if self.cfg.rendering_mode == RenderingMode.RAY_TRACING:
-            self.ray_traced_img, self.render_cache = render_scene(
-                self.scene, self.cfg.rendering_mode, cache=self.render_cache
+        if self.cfg.rendering.mode == RenderingMode.RAY_TRACING:
+            camera_changed = not np.allclose(
+                self.previous_camera_pose, ps.get_camera_view_matrix()
             )
-            # TODO: setup direct buffer write with GL interop, etc
-            # TODO: setup Polyscope-based compositing with correct depth
-            # TODO: accumulate rendering samples (multiple frames)
-            # TODO: optix-based denoising, if available.
-            # ps.add_raw_color_alpha_render_image_quantity(
-            ps.add_color_alpha_image_quantity(
-                "ray_traced_img",
-                values=self.ray_traced_img.numpy(),
-                # depth_values=np.zeros((256, 256)),
-                # color_values=self.ray_traced_img.numpy(),
-                enabled=True,
-                image_origin="lower_left",
-                # image_origin="upper_left",
-            )
+            if camera_changed:
+                self.rendering_reset_accumulation()
 
-            # # TODO: remove this
-            # # This experiment tells us that:
-            # # - `get_camera_view_matrix()` is the inverse of camera_to_world
-            # # - In the Polyscope camera frame, -z is forward, +x goes to the right, +y goes up
-            # cam_to_world = np.linalg.inv(ps.get_camera_view_matrix())
-            # debug_pos = cam_to_world @ np.array([0, 0, -100, 1])
-            # debug_pos = debug_pos[None, :3]
-            # ps.register_point_cloud("debug_pos", debug_pos, radius=0.01)
+            if (
+                self.rendering_accumulated_samples
+                < self.cfg.rendering.max_accumulated_spp
+            ):
+                # TODO: since we don't accumulate in the depth buffer (?), can skip rendering depth.
+                new_img, self.ray_traced_depth, self.render_cache = render_scene(
+                    self.cfg.rendering,
+                    self.scene,
+                    seed=self.frame_i,
+                    camera_changed=camera_changed,
+                    cache=self.render_cache,
+                )
+                if self.ray_traced_img is None:
+                    self.ray_traced_img = new_img
+                else:
+                    # TODO: how should we correctly accumulate? Use spp so far?
+                    t = self.cfg.rendering.spp_per_frame / (
+                        self.rendering_accumulated_samples
+                        + self.cfg.rendering.spp_per_frame
+                    )
+                    self.ray_traced_img = (1 - t) * self.ray_traced_img + t * new_img
+                self.rendering_accumulated_samples += self.cfg.rendering.spp_per_frame
+
+                # TODO: setup direct buffer write with GL interop, etc
+                # TODO: fix depth so that Polyscope can do correct compositing
+                # TODO: accumulate rendering samples (multiple frames)
+                # TODO: optix-based denoising, if available.
+                ps.add_raw_color_alpha_render_image_quantity(
+                    "ray_traced_img",
+                    depth_values=self.ray_traced_depth.numpy(),
+                    color_values=self.ray_traced_img.numpy(),
+                    enabled=True,
+                    image_origin="lower_left",
+                )
+                ps.request_redraw()
 
         # Automatic refinement of the radio map
         if self.radio_map is not None:
@@ -278,6 +294,29 @@ class SionnaRtGui:
 
         self.gui()
         self.frame_i += 1
+        self.previous_camera_pose = ps.get_camera_view_matrix()
+
+    # ------------------------
+
+    def rendering_reset_accumulation(self):
+        self.rendering_accumulated_samples = 0
+        self.ray_traced_img *= 0
+
+    def clear_ray_traced_image(self):
+        had_image = self.ray_traced_img is not None
+        self.render_cache = None
+        self.ray_traced_img = None
+        self.ray_traced_depth = None
+
+        # TODO: more robust way to get this info from Polyscop
+        if had_image:
+            # TODO: proper way to remove / disable the buffer in Polyscope.
+            ps.add_raw_color_alpha_render_image_quantity(
+                "ray_traced_img",
+                depth_values=np.empty((1, 1)),
+                color_values=np.empty((1, 1, 4)),
+                enabled=False,
+            )
 
     # ------------------------
 
@@ -477,6 +516,18 @@ class SionnaRtGui:
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("F")), repeat=False):
             self.recenter_camera()
 
+        # C: go to next rendering mode.
+        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("C")), repeat=False):
+            self.cfg.rendering.mode = RenderingMode(
+                (self.cfg.rendering.mode.value + 1) % len(RenderingMode)
+            )
+            if self.cfg.rendering.mode != RenderingMode.RAY_TRACING:
+                self.clear_ray_traced_image()
+
+        # Tab: toggle show GUI (ours)
+        if psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
+            self.cfg.show_gui = not self.cfg.show_gui
+
         # Exit
         if (
             imgui_io.KeyCtrl
@@ -518,8 +569,13 @@ class SionnaRtGui:
         # TODO: set ImGui window title
         # TODO: change GUI accent color to a non-default color.
 
+        if not self.cfg.show_gui:
+            return
+
         psim.SetWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
         psim.SetWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
+
+        psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
@@ -778,11 +834,11 @@ class SionnaRtGui:
             if changed:
                 ps.set_background_color(self.cfg.background_color)
 
-            changed, self.build_default_ps_gui = psim.Checkbox(
-                "Show Polyscope UI", self.build_default_ps_gui
+            changed, self.cfg.show_polyscope_gui = psim.Checkbox(
+                "Show Polyscope UI", self.cfg.show_polyscope_gui
             )
             if changed:
-                ps.set_build_default_gui_panels(self.build_default_ps_gui)
+                ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
 
             psim.Spacing()
 
