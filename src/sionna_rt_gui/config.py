@@ -71,8 +71,8 @@ class RenderingConfig:
     default_resolution: tuple[int, int] = (1920, 1080)
     # Relative resolution for ray traced rendering
     relative_resolution: float = 0.5
-    spp_per_frame: int = 8
-    max_accumulated_spp: int = 512
+    spp_per_frame: int = 16
+    max_accumulated_spp: int = 1024
 
     envmap: str | None = os.path.join(
         DATA_DIR, "envmaps", "teufelsberg_ground_2_1k.exr"

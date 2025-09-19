@@ -37,7 +37,7 @@ def setup_scene_for_rendering(
             "far_clip": 10000,
             "film": {
                 "type": "hdrfilm",
-                "pixel_format": "rgba",
+                "pixel_format": "rgb",
                 "width": int(cfg.default_resolution[0] * cfg.relative_resolution),
                 "height": int(cfg.default_resolution[1] * cfg.relative_resolution),
                 "filter": {
@@ -74,10 +74,9 @@ def setup_scene_for_rendering(
         {
             "type": "aov",
             "aovs": "dd.y:depth",
-            "rgb": {
+            "integrator": {
                 "type": "path",
                 "hide_emitters": True,
-                # "hide_emitters": False,
                 "max_depth": 5,
             },
         }
@@ -112,7 +111,6 @@ def _render_scene(
         # Camera to world transform
         view_pose = ps.get_camera_view_matrix()
 
-        # TODO: only update camera if it actually moved.
         # TODO: maybe reuse `rt.utils.render.make_render_sensor()`
         ps_to_world = np.linalg.inv(view_pose)
         del view_pose
@@ -139,6 +137,14 @@ def _render_scene(
                 ]
             )
             @ mi.ScalarTransform4f(view_rotation)
+            @ mi.ScalarTransform4f(
+                [
+                    [1, 0, 0, 0],
+                    [0, -1, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1],
+                ]
+            )
         )
 
         params = mi.traverse(sensor)
@@ -147,7 +153,7 @@ def _render_scene(
 
     # Note: we can't directly use `mi.render()` because of a couple of asserts on the
     # types of integrator, sensor, etc.
-    # TODO: use kernel freezing
+    # TODO: use kernel freezing, if it helps
     img = render_op.eval(
         scene=visual_scene,
         sensor=sensor,
@@ -157,14 +163,15 @@ def _render_scene(
         seed=(seed, None),
         spp=(cfg.spp_per_frame, None),
     )
-    img = img[..., :4]
-    # TODO: pre-multiply alpha to avoid fringing?
-    # img[..., :3] *= img[..., -2]
+    rgb = img[..., :3]
 
+    # Polyscope: "Depth values should be radial ray distance from the camera origin,
+    # not perpendicular distance from the image plane."
     # TODO: depth convention mismatch with Polyscope?
     depth = img[..., -1]
+    depth = dr.select(depth == 0, dr.inf, depth)
 
-    return img, depth, cache
+    return rgb, depth, cache
 
 
 def render_scene(

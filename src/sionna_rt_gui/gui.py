@@ -187,6 +187,7 @@ class SionnaRtGui:
             pass
 
         add_scene_to_polyscope(self.scene, self.ps_groups)
+        self.set_rendering_mode(self.cfg.rendering.mode)
         if recenter_camera:
             self.recenter_camera()
 
@@ -264,12 +265,12 @@ class SionnaRtGui:
                 # TODO: fix depth so that Polyscope can do correct compositing
                 # TODO: accumulate rendering samples (multiple frames)
                 # TODO: optix-based denoising, if available.
-                ps.add_raw_color_alpha_render_image_quantity(
+                ps.add_raw_color_render_image_quantity(
                     "ray_traced_img",
                     depth_values=self.ray_traced_depth.numpy(),
                     color_values=self.ray_traced_img.numpy(),
                     enabled=True,
-                    image_origin="lower_left",
+                    image_origin="upper_left",
                 )
                 ps.request_redraw()
 
@@ -297,6 +298,15 @@ class SionnaRtGui:
         self.previous_camera_pose = ps.get_camera_view_matrix()
 
     # ------------------------
+
+    def set_rendering_mode(self, mode: RenderingMode):
+        self.cfg.rendering.mode = mode
+        is_ray_tracing = self.cfg.rendering.mode == RenderingMode.RAY_TRACING
+        if not is_ray_tracing:
+            self.clear_ray_traced_image()
+
+        # Hide Polyscope-side meshes if we are ray tracing.
+        self.ps_groups["scene"].set_enabled(not is_ray_tracing)
 
     def rendering_reset_accumulation(self):
         self.rendering_accumulated_samples = 0
@@ -520,11 +530,9 @@ class SionnaRtGui:
 
         # C: go to next rendering mode.
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("C")), repeat=False):
-            self.cfg.rendering.mode = RenderingMode(
-                (self.cfg.rendering.mode.value + 1) % len(RenderingMode)
+            self.set_rendering_mode(
+                RenderingMode((self.cfg.rendering.mode.value + 1) % len(RenderingMode))
             )
-            if self.cfg.rendering.mode != RenderingMode.RAY_TRACING:
-                self.clear_ray_traced_image()
 
         # Tab: toggle show GUI (ours)
         if psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
