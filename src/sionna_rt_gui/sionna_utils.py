@@ -241,7 +241,7 @@ def get_or_add_planar_radio_map_mesh(
 
 
 def add_paths_to_polyscope(
-    paths: rt.Paths | None, ps_groups: dict[str, ps.Group], cfg: PathsConfig
+    gui: "SionnaRtGui", paths: rt.Paths | None, ps_groups: dict[str, ps.Group]
 ):
     if paths is None:
         return
@@ -260,17 +260,15 @@ def add_paths_to_polyscope(
         vertices,
         edges="segments",
         enabled=True,
-        # color=(0.7, 0.7, 0.7),
-        # TODO: make radius adaptive & configurable
-        radius=0.001,
     )
+    display_radius = max(0.0001 * scene_scale(gui.scene), 0.3)
+    struct.set_radius(display_radius, relative=False)
+
     struct.add_color_quantity(
         "path_colors",
         np.array(colors),
         defined_on="edges",
-        # param_name="uv",
         enabled=True,
-        # image_origin="lower_left",
     )
     struct.set_transparency(0.6)
     struct.add_to_group(ps_groups["paths"])

@@ -98,4 +98,4 @@ def antenna_array_gui(gui: "SionnaRtGui"):
         # TODO: probably should move this to a little method
         gui.clear_paths()
         gui.paths = gui.compute_paths()
-        add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
+        add_paths_to_polyscope(gui, gui.paths, gui.ps_groups)

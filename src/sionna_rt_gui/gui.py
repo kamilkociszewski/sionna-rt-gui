@@ -145,7 +145,7 @@ class SionnaRtGui:
             self.set_radio_map(self.compute_radio_map(), show=True)
         if False:
             self.paths = self.compute_paths()
-            add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
+            add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
@@ -422,7 +422,7 @@ class SionnaRtGui:
             self.set_radio_map(self.compute_radio_map(), show=True)
         if allow_auto_update and self.cfg.paths.auto_update:
             self.paths = self.compute_paths()
-            add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
+            add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
     def remove_object(self, object: rt.SceneObject, selected_type: SelectionType):
         match selected_type:
@@ -763,7 +763,7 @@ class SionnaRtGui:
             clicked = psim.Button("Compute paths")
             if clicked:
                 self.paths = self.compute_paths()
-                add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
+                add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
             changed, self.cfg.paths.max_depth = psim.SliderInt(
                 "Max depth##paths",
@@ -817,7 +817,7 @@ class SionnaRtGui:
             if self.cfg.paths.auto_update and needs_update:
                 self.paths = self.compute_paths()
             if needs_update or needs_visual_update:
-                add_paths_to_polyscope(self.paths, self.ps_groups, self.cfg.paths)
+                add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
             psim.Spacing()
 
