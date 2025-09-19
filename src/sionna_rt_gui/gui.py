@@ -300,7 +300,8 @@ class SionnaRtGui:
 
     def rendering_reset_accumulation(self):
         self.rendering_accumulated_samples = 0
-        self.ray_traced_img *= 0
+        if self.ray_traced_img is not None:
+            self.ray_traced_img *= 0
 
     def clear_ray_traced_image(self):
         had_image = self.ray_traced_img is not None

@@ -10,12 +10,7 @@ import polyscope as ps
 from sionna import rt
 from sionna.rt.renderer import visual_scene_from_wireless_scene
 
-from .config import RenderingConfig
-
-
-class RenderingMode(Enum):
-    RASTERIZATION = 0
-    RAY_TRACING = 1
+from .config import RenderingConfig, RenderingMode
 
 
 RENDERING_MODE_NAMES = ["Rasterization", "Ray tracing"]

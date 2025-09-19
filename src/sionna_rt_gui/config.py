@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
+import os
 
 import yaml
 
 from omegaconf import OmegaConf
 
-from .rendering import RenderingMode
+from . import DATA_DIR
 
 
 @dataclass(kw_only=True)
@@ -55,6 +57,11 @@ class PathsConfig:
     specular_reflection: bool = True
     diffuse_reflection: bool = False
     refraction: bool = True
+
+
+class RenderingMode(Enum):
+    RASTERIZATION = 0
+    RAY_TRACING = 1
 
 
 @dataclass(kw_only=True)
