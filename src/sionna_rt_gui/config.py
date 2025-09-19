@@ -74,6 +74,10 @@ class RenderingConfig:
     spp_per_frame: int = 8
     max_accumulated_spp: int = 512
 
+    envmap: str | None = os.path.join(
+        DATA_DIR, "envmaps", "teufelsberg_ground_2_1k.exr"
+    )
+
 
 @dataclass(kw_only=True)
 class GuiConfig:
