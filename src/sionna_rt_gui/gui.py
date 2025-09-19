@@ -625,9 +625,14 @@ class SionnaRtGui:
             needs_update = False
             needs_visual_update = False
 
-            clicked = psim.Button("Compute radio map")
-            if clicked:
+            if psim.Button("Compute radio map"):
                 self.set_radio_map(self.compute_radio_map(), show=True)
+
+            psim.SameLine()
+            psim.BeginDisabled(self.radio_map is None)
+            if psim.Button("Remove"):
+                self.clear_radio_map()
+            psim.EndDisabled()
 
             psim.SameLine()
             _, self.cfg.radio_map.auto_update = psim.Checkbox(
