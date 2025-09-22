@@ -158,7 +158,6 @@ def add_radio_map_to_polyscope(
         )
 
         # Note: texture-space alpha is not supported yet.
-        # TODO: figure out the correct flip / transpose combination or change vertex ordering
         struct.add_scalar_quantity(
             f"{name}_alpha",
             alpha.ravel(),

@@ -27,10 +27,15 @@ def setup_scene_for_rendering(
     ), "This function is supposed to be called with an RGB variant."
 
     # TODO: adapt if the window is resized
+    render_res = (
+        int(cfg.default_resolution[0] * cfg.relative_resolution),
+        int(cfg.default_resolution[1] * cfg.relative_resolution),
+    )
+    fov_y_deg = ps.get_view_camera_parameters().get_fov_vertical_deg()
     sensor = mi.load_dict(
         {
             "type": "perspective",
-            "fov": ps.get_view_camera_parameters().get_fov_vertical_deg(),
+            "fov": fov_y_deg,
             "fov_axis": "y",
             # TODO: adapt automatically based on scene size
             "near_clip": 0.1,
@@ -38,8 +43,8 @@ def setup_scene_for_rendering(
             "film": {
                 "type": "hdrfilm",
                 "pixel_format": "rgb",
-                "width": int(cfg.default_resolution[0] * cfg.relative_resolution),
-                "height": int(cfg.default_resolution[1] * cfg.relative_resolution),
+                "width": render_res[0],
+                "height": render_res[1],
                 "filter": {
                     "type": "box",
                 },
@@ -82,11 +87,32 @@ def setup_scene_for_rendering(
         }
     )
 
+    # Helper to convert between radial and perpendicular-style depth buffers.
+    # Camera parameters from the sensor
+    fy = render_res[1] / (2.0 * np.tan(np.radians(fov_y_deg) / 2.0))
+    fx = fy  # Assume square pixels
+    cx = 0.5 * render_res[0]
+    cy = 0.5 * render_res[1]
+    # Create pixel coordinate grids
+    i_coords, j_coords = dr.meshgrid(
+        dr.arange(mi.Float, render_res[0]),
+        dr.arange(mi.Float, render_res[1]),
+        indexing="xy",
+    )
+    x_norm = (i_coords - cx) / fx
+    y_norm = (j_coords - cy) / fy
+    # Calculate radial distance factor
+    radial_factor = mi.TensorXf(
+        dr.sqrt(1.0 + dr.square(x_norm) + dr.square(y_norm)),
+        shape=(render_res[1], render_res[0]),
+    )
+
     return {
         "sensor": sensor,
         "visual_scene": visual_scene,
         "integrator": integrator,
         "render_op": _RenderOp(),
+        "radial_factor": radial_factor,
     }
 
 
@@ -106,6 +132,7 @@ def _render_scene(
     visual_scene = cache["visual_scene"]
     integrator = cache["integrator"]
     render_op = cache["render_op"]
+    radial_factor = cache["radial_factor"]
 
     if camera_changed:
         # Camera to world transform
@@ -167,8 +194,9 @@ def _render_scene(
 
     # Polyscope: "Depth values should be radial ray distance from the camera origin,
     # not perpendicular distance from the image plane."
-    # TODO: depth convention mismatch with Polyscope?
-    depth = img[..., -1]
+    # Convert from perpendicular distance to radial ray distance (?)
+    perpendicular_depth = img[..., -1]
+    depth = perpendicular_depth / radial_factor
     depth = dr.select(depth == 0, dr.inf, depth)
 
     return rgb, depth, cache
