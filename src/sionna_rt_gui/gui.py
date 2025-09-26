@@ -79,6 +79,7 @@ class SionnaRtGui:
         ps.set_enable_vsync(cfg.use_vsync)
         ps.set_max_fps(-1)
         ps.set_user_gui_is_on_right_side(False)
+        ps.set_open_imgui_window_for_user_callback(False)
         ps.set_verbosity(1)
         ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
         ps.set_background_color(self.cfg.background_color)
@@ -588,6 +589,7 @@ class SionnaRtGui:
 
         psim.SetWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
         psim.SetWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
+        psim.Begin("SionnaRT##sionna", open=True)
 
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
 
@@ -863,3 +865,5 @@ class SionnaRtGui:
 
         if self.selected_object is not None:
             selection_gui(self, self.selected_object, self.selected_type)
+
+        psim.End()
