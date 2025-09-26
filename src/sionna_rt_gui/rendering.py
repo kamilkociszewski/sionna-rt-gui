@@ -12,10 +12,6 @@ from sionna.rt.renderer import visual_scene_from_wireless_scene
 from .config import RenderingConfig, RenderingMode
 
 
-RENDERING_MODE_NAMES = ["Rasterization", "Ray tracing"]
-assert len(RENDERING_MODE_NAMES) == len(RenderingMode)
-
-
 def setup_scene_for_rendering(
     cfg: RenderingConfig,
     scene: rt.Scene,

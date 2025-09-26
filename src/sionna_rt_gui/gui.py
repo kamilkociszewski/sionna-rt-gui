@@ -8,8 +8,8 @@ from sionna import rt
 
 from .animation import AnimationConfig, animation_gui, animation_tick
 from .antenna_array import AntennaArrayConfig, antenna_array_gui
-from .config import GuiConfig
-from .rendering import render_scene, RenderingMode
+from .config import GuiConfig, RenderingMode, RENDERING_MODE_NAMES
+from .rendering import render_scene
 from .sionna_utils import (
     add_radio_map_to_polyscope,
     set_or_update_radio_devices_polyscope,
@@ -840,11 +840,20 @@ class SionnaRtGui:
             psim.Spacing()
             # TODO: option to show/hide radio device orientations
 
+            changed, combo_i = psim.Combo(
+                "Rendering mode",
+                self.cfg.rendering.mode.value,
+                RENDERING_MODE_NAMES,
+            )
+            if changed:
+                self.cfg.rendering.mode = RenderingMode(combo_i)
+                self.set_rendering_mode(self.cfg.rendering.mode)
+
             changed, self.cfg.use_vsync = psim.Checkbox("VSync", self.cfg.use_vsync)
             if changed:
                 ps.set_enable_vsync(self.cfg.use_vsync)
 
-            psim.Spacing()
+            psim.SameLine()
 
             self.cfg.background_color = ps.get_background_color()
             changed, self.cfg.background_color = psim.ColorEdit4(

@@ -64,6 +64,10 @@ class RenderingMode(Enum):
     RAY_TRACING = 1
 
 
+RENDERING_MODE_NAMES = ["Rasterization", "Ray tracing"]
+assert len(RENDERING_MODE_NAMES) == len(RenderingMode)
+
+
 @dataclass(kw_only=True)
 class RenderingConfig:
     mode: RenderingMode = RenderingMode.RAY_TRACING
