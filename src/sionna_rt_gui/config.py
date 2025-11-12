@@ -15,6 +15,8 @@ from sionna.rt.antenna_pattern import (
 
 from . import DATA_DIR
 
+# ------------------------
+
 
 @dataclass(kw_only=True)
 class AntennaArrayConfig:
@@ -89,6 +91,9 @@ class RadioMapConfig:
         return int(10**self.log_samples_per_it)
 
 
+# ------------------------
+
+
 @dataclass(kw_only=True)
 class PathsConfig:
     auto_update: bool = True
@@ -105,6 +110,9 @@ class PathsConfig:
     diffraction: bool = False
     edge_diffraction: bool = False
     diffraction_lit_region: bool = False
+
+
+# ------------------------
 
 
 class RenderingMode(Enum):
@@ -146,6 +154,9 @@ class RenderingConfig:
         )
 
 
+# ------------------------
+
+
 @dataclass(kw_only=True)
 class GuiConfig:
     title: str = "Sionna RT"
@@ -177,6 +188,9 @@ class GuiConfig:
     paths: PathsConfig = field(default_factory=PathsConfig)
 
 
+# ------------------------
+
+
 def load_config(config_path: str, data_path: str | None) -> GuiConfig:
     try:
         from yaml import CLoader as Loader
@@ -185,9 +199,13 @@ def load_config(config_path: str, data_path: str | None) -> GuiConfig:
 
     with open(config_path, "r") as f:
         loaded = yaml.load(f, Loader=Loader)
+        # The config file might be empty.
+        if loaded is None:
+            loaded = {}
 
     loaded = OmegaConf.create(loaded)
-    # Make sure interpolations are resolved, if any
+    # Resolve interpolations, if any.
     OmegaConf.resolve(loaded)
+    loaded["config_path"] = config_path
     merged = OmegaConf.merge(OmegaConf.structured(GuiConfig), loaded)
-    return GuiConfig(config_path=config_path, **merged)
+    return OmegaConf.to_object(merged)
