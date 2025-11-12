@@ -93,7 +93,7 @@ class SionnaRtGui:
         self.ps_groups: dict[str, ps.Group] = {}
         self.frame_i: int = 0
         self.was_mouse_dragging: bool = False
-        self.prev_gizmo_to_world: np.ndarray | None = None
+        self.home_camera_to_world: np.ndarray | None = None
         # Pre-init settings
         ps.set_program_name(self.cfg.title)
         # Window size and position will be loaded from the last run from `.polyscope.ini`
@@ -124,10 +124,6 @@ class SionnaRtGui:
 
         # TODO: add slice plane controls (Polyscope has built-in support)
         # TODO: add scene drag & drop support (load the dropped XML file)
-
-        # # Apply default camera pose
-        # ps.set_automatically_compute_scene_extents(False)
-        # ps.set_bounding_box((0, 0, 0), (1, 1, 1))
 
         # Load scene
         # TODO: preserve currently-selected scene across reloads
@@ -214,9 +210,17 @@ class SionnaRtGui:
         add_scene_to_polyscope(self.scene, self.ps_groups)
         self.set_rendering_mode(self.cfg.rendering.mode)
         if recenter_camera:
-            self.recenter_camera()
+            self.fit_camera_to_scene()
 
-    def recenter_camera(self):
+    def move_camera_home(self):
+        """Move camera to the home view, if any. Otherwise, fits the scene in the camera viewport."""
+        if self.home_camera_to_world is not None:
+            ps.set_camera_view_matrix(self.home_camera_to_world)
+        else:
+            self.fit_camera_to_scene()
+        ps.request_redraw()
+
+    def fit_camera_to_scene(self):
         """Move the camera to a position where most of the scene is visible."""
         fov_vertical_deg = ps.get_view_camera_parameters().get_fov_vertical_deg()
         bbox = self.scene.mi_scene.bbox()
@@ -333,8 +337,10 @@ class SionnaRtGui:
                         use_alpha=self.cfg.radio_map.use_alpha,
                     )
 
+        # --- Radio device animations
         animation_tick(self, psim.GetIO().DeltaTime)
 
+        # --- GUI
         self.gui()
         self.frame_i += 1
         self.previous_camera_pose = ps.get_camera_view_matrix()
@@ -594,13 +600,19 @@ class SionnaRtGui:
         ):
             self.process_pick_result(ps.pick(screen_coords=imgui_io.MousePos))
 
-        # R: reload code
-        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("R")), repeat=False):
+
+        # Shift + R: reload code
+        if imgui_io.KeyShift and psim.IsKeyPressed(
+            psim.ImGuiKey(ps.get_key_code("R")), repeat=False
+        ):
             self.code_reload_requested = True
 
-        # F: recenter camera
+        # R: reset camera to initial position
+        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("R")), repeat=False):
+            self.move_camera_home()
+        # F: fit scene in camera viewport
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("F")), repeat=False):
-            self.recenter_camera()
+            self.fit_camera_to_scene()
 
         # C: go to next rendering mode.
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("C")), repeat=False):
