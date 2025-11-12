@@ -82,9 +82,13 @@ class RadioMapConfig:
     # stop_threshold: float | None = None
 
     # -- Display
-    color_map: str = "magma"
+    color_map: str = "viridis"
+    use_alpha: bool = True
     vmin: float = -150
     vmax: float = -50
+    # When updating the radio map, upload new values directly from the device.
+    # This is only supported when using a CUDA variant.
+    use_direct_update_from_device: bool = True
 
     @property
     def samples_per_it(self) -> int:

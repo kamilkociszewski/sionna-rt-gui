@@ -1,0 +1,132 @@
+from __future__ import annotations
+
+import io
+
+import drjit as dr
+import mitsuba as mi
+import numpy as np
+import matplotlib.colors
+import matplotlib.pyplot as plt
+import matplotlib.patheffects as path_effects
+
+
+class Normalize:
+    """
+    Minimal DrJit alternative to matplotlib.colors.Normalize.
+    """
+
+    def __init__(self, vmin: float, vmax: float):
+        self.vmin = vmin
+        self.vmax = vmax
+
+    def __call__(self, value: mi.TensorXf) -> mi.TensorXf:
+        return (value - self.vmin) / (self.vmax - self.vmin)
+
+
+class DrColormap:
+    def __init__(self, color_map: matplotlib.colors.Colormap):
+        if not isinstance(color_map, matplotlib.colors.ListedColormap):
+            raise NotImplementedError(
+                f"color_map must be a matplotlib.colors.ListedColormap, found {type(color_map)}"
+            )
+        color_map._init()
+        self.N = color_map.N
+        self.lut = mi.Float(color_map._lut.ravel())
+        self.idx_under = color_map._i_under
+        self.idx_over = color_map._i_over
+
+    def __call__(self, value: mi.TensorXf) -> mi.TensorXf:
+        if False:
+            result_np = self.color_map(value.numpy())
+            return mi.TensorXf(result_np)
+        else:
+            sh = value.shape
+            value = value.array
+            is_under = value < 0.0
+            is_over = value >= 1.0
+            is_valid = ~(is_under | is_over)
+            quantitized = dr.select(
+                is_valid,
+                mi.UInt32(value * self.N),
+                dr.select(is_under, self.idx_under, self.idx_over),
+            )
+            colors = dr.gather(mi.Vector4f, self.lut, quantitized, active=is_valid)
+            return mi.TensorXf(
+                dr.ravel(colors),
+                shape=(*sh, 4),
+            )
+
+
+def radio_map_texture(
+    rm_values: mi.TensorXf,
+    db_scale: bool = True,
+    rm_cmap: str | callable | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    premultiply_alpha: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    # Leave zero-valued regions as transparent
+    valid = rm_values > 0.0
+    opacity = mi.TensorXf(valid)
+
+    # Color mapping of real values
+    rm_values, normalizer, color_map = radio_map_color_mapping(
+        rm_values, db_scale=db_scale, cmap=rm_cmap, vmin=vmin, vmax=vmax
+    )
+    texture = color_map(normalizer(rm_values))
+    # Eliminate alpha channel
+    texture = texture[..., :3]
+    # Colors from the color map are gamma-compressed, go back to linear
+    texture = dr.srgb_to_linear(texture)
+
+    if premultiply_alpha:
+        # Pre-multiply alpha to avoid fringe
+        texture *= opacity[..., None]
+
+    return texture, opacity
+
+
+def radio_map_color_mapping(
+    radio_map: mi.TensorXf,
+    db_scale: bool = True,
+    cmap: str | callable | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+):
+    """
+    Prepare a Matplotlib color maps and normalizing helper based on the
+    requested value scale to be displayed.
+    Also applies the dB scaling to a copy of the radio map, if requested.
+
+    Note that if vmin or vmax are not provided, they will be computed from
+    the data, which requires a reduction.
+    """
+    valid = (radio_map > 0.0) & (dr.isfinite(radio_map))
+    if db_scale:
+        radio_map = dr.select(
+            valid,
+            10.0 * dr.log(radio_map) / dr.log(10.0),
+            radio_map,
+        )
+
+    if (vmin is None) or (vmax is None):
+        any_valid = dr.any(valid)
+    if vmin is None:
+        vmin = dr.min(radio_map[valid]) if any_valid else 0
+    if vmax is None:
+        vmax = dr.min(radio_map[valid]) if any_valid else 0
+
+    normalizer = Normalize(vmin=vmin, vmax=vmax)
+
+    # Make sure that invalid values are outside the color map range.
+    radio_map = dr.select(valid, radio_map, vmin - 1)
+
+    if cmap is None:
+        color_map = matplotlib.colormaps.get_cmap("viridis")
+    elif isinstance(cmap, str):
+        color_map = matplotlib.colormaps.get_cmap(cmap)
+    else:
+        raise TypeError(f"Unsupported `cmap` type: {type(cmap)}")
+
+    color_map = DrColormap(color_map)
+    return radio_map, normalizer, color_map

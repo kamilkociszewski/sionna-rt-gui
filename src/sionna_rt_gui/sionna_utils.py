@@ -1,6 +1,7 @@
 import os
 
 import drjit as dr
+import mitsuba as mi
 import numpy as np
 import polyscope as ps
 from sionna import rt
@@ -9,6 +10,9 @@ from sionna.rt.utils.geometry import rotation_matrix
 from sionna.rt.utils.render import scene_scale
 
 from . import SCENES_DIR
+from .config import RadioMapConfig
+from .ps_utils import supports_direct_update_from_device
+from .rm_utils import radio_map_texture
 
 
 ITU_TO_PS_MATERIAL = {
@@ -138,41 +142,77 @@ def add_radio_map_to_polyscope(
     radio_map: rt.RadioMap | None,
     ps_groups: dict[str, ps.Group],
     cfg: RadioMapConfig,
+    direct_update_from_device: bool = True,
+    use_alpha: bool = True,
 ):
     if radio_map is None:
         return
 
-    # TODO: make all of this faster, we shouldn't be bottlenecked on the rendering / transfers
-    if isinstance(radio_map, rt.PlanarRadioMap):
-        struct = get_or_add_planar_radio_map_mesh(name, radio_map, ps_groups)
+    direct_update_from_device &= supports_direct_update_from_device()
 
-        rm_values = np.max(radio_map.path_gain.numpy(), axis=0)
-        texture, alpha = rt.radio_map_texture(
+    if isinstance(radio_map, rt.PlanarRadioMap):
+        struct = get_or_add_planar_radio_map_mesh(
+            name, radio_map, ps_groups, use_alpha=use_alpha
+        )
+
+        has_buffer = True
+        try:
+            struct.get_quantity_buffer(name, "colors")
+        except ValueError:
+            has_buffer = False
+
+        # Prepare color-mapped radio map (directly on device)
+        rm_values = dr.max(radio_map.path_gain, axis=0)
+        texture, alpha = radio_map_texture(
             rm_values,
             db_scale=True,
             vmin=cfg.vmin,
             vmax=cfg.vmax,
-            premultiply_alpha=True,
+            premultiply_alpha=use_alpha,
             rm_cmap=cfg.color_map,
         )
-        # TODO: change texture interpolation to nearest neighbor
-        struct.add_color_quantity(
-            name,
-            texture,
-            defined_on="texture",
-            param_name="uv",
-            enabled=True,
-            image_origin="lower_left",
-        )
 
-        # Note: texture-space alpha is not supported yet.
-        struct.add_scalar_quantity(
-            f"{name}_alpha",
-            alpha.ravel(),
-            defined_on="vertices",
-            enabled=False,
-        )
-        struct.set_transparency_quantity(f"{name}_alpha")
+        if not has_buffer or not direct_update_from_device:
+            # --- Register the radio map's texture & alpha buffers
+            struct.add_color_quantity(
+                name,
+                texture.numpy().astype(np.float32),
+                defined_on="texture",
+                param_name="uv",
+                enabled=True,
+                image_origin="lower_left",
+            )
+
+            if use_alpha:
+                # Note: texture-space alpha is not supported yet.
+                struct.add_scalar_quantity(
+                    f"{name}_alpha",
+                    alpha.numpy().ravel().astype(np.float32),
+                    defined_on="vertices",
+                    enabled=False,
+                )
+                struct.set_transparency_quantity(f"{name}_alpha")
+
+        else:
+            # --- Update the existing buffers directly from the GPU
+            # TODO: fix direct alpha updates and re-enable it.
+            assert (
+                not use_alpha
+            ), "Alpha is not supported when updating directly from the device."
+
+            rm_texture_buffer = struct.get_quantity_buffer(name, "colors")
+
+            # TODO: figure out the weird component size mismatch so that we no longer need this padding
+            texture_dr = dr.concat(
+                [texture, dr.zeros(mi.TensorXf, shape=(*texture.shape[:-1], 1))],
+                axis=-1,
+            )
+
+            rm_texture_buffer.update_data_from_device(texture_dr)
+            if use_alpha:
+                alphas_dr = mi.Float(alpha.ravel())
+                rm_alpha_buffer = struct.get_quantity_buffer(name + "_alpha", "values")
+                rm_alpha_buffer.update_data_from_device(alphas_dr)
 
     elif isinstance(radio_map, rt.MeshRadioMap):
         raise NotImplementedError("Mesh radio maps are not supported yet")
@@ -184,6 +224,7 @@ def get_or_add_planar_radio_map_mesh(
     name: str,
     radio_map: rt.PlanarRadioMap,
     ps_groups: dict[str, ps.Group],
+    use_alpha: bool = True,
 ) -> ps.SurfaceMesh:
 
     rm_shape = radio_map.path_gain.shape[1:]
@@ -197,36 +238,59 @@ def get_or_add_planar_radio_map_mesh(
             return struct
 
     # Create rectangle mesh to display the planar radio map.
-    # We need one vertex per entry in the radio map because spatially-varying
-    # transparency cannot be defined in texture space.
-    vertices_x, vertices_y = np.meshgrid(
-        np.linspace(-1, 1, rm_shape[1]),
-        np.linspace(-1, 1, rm_shape[0]),
-        indexing="xy",
-    )
-    vertices = np.stack(
-        [
-            vertices_x,
-            vertices_y,
-            np.zeros_like(vertices_x),
-            np.ones_like(vertices_x),
-        ],
-        axis=-1,
-    ).reshape(-1, 4)
-    # Transform vertices to world coordinates (accounts from plane pose)
-    to_world = radio_map.to_world.matrix.numpy().squeeze()
-    vertices = (vertices @ to_world.T)[:, :3]
+    if use_alpha:
+        # We need one vertex per entry in the radio map because spatially-varying
+        # transparency cannot be defined in texture space.
+        vertices_x, vertices_y = np.meshgrid(
+            np.linspace(-1, 1, rm_shape[1]),
+            np.linspace(-1, 1, rm_shape[0]),
+            indexing="xy",
+        )
+        vertices = np.stack(
+            [
+                vertices_x,
+                vertices_y,
+                np.zeros_like(vertices_x),
+                np.ones_like(vertices_x),
+            ],
+            axis=-1,
+        ).reshape(-1, 4)
+        # Transform vertices to world coordinates (accounts from plane pose)
+        to_world = radio_map.to_world.matrix.numpy().squeeze()
+        vertices = (vertices @ to_world.T)[:, :3]
 
-    # Faces: two triangles per cell
-    # Adapted from: https://stackoverflow.com/a/44935368
-    r = np.arange(vertices.shape[0]).reshape(rm_shape)
-    faces = np.empty((rm_shape[0] - 1, rm_shape[1] - 1, 2, 3), dtype=int)
-    faces[:, :, 0, 0] = r[:-1, :-1]
-    faces[:, :, 1, 0] = r[:-1, 1:]
-    faces[:, :, 0, 1] = r[:-1, 1:]
-    faces[:, :, 1, 1] = r[1:, 1:]
-    faces[:, :, :, 2] = r[1:, :-1, None]
-    faces = faces.reshape(-1, 3)
+        # Faces: two triangles per cell
+        # Adapted from: https://stackoverflow.com/a/44935368
+        r = np.arange(vertices.shape[0]).reshape(rm_shape)
+        faces = np.empty((rm_shape[0] - 1, rm_shape[1] - 1, 2, 3), dtype=int)
+        faces[:, :, 0, 0] = r[:-1, :-1]
+        faces[:, :, 1, 0] = r[:-1, 1:]
+        faces[:, :, 0, 1] = r[:-1, 1:]
+        faces[:, :, 1, 1] = r[1:, 1:]
+        faces[:, :, :, 2] = r[1:, :-1, None]
+        faces = faces.reshape(-1, 3)
+
+    else:
+        vertices = np.array(
+            [
+                [-1, -1, 0, 1],
+                [1, -1, 0, 1],
+                [1, 1, 0, 1],
+                [-1, 1, 0, 1],
+            ]
+        )
+        vertices_x = vertices[:, 0]
+        vertices_y = vertices[:, 1]
+        # Transform vertices to world coordinates (accounts from plane pose)
+        to_world = radio_map.to_world.matrix.numpy().squeeze()
+        vertices = (vertices @ to_world.T)[:, :3]
+
+        faces = np.array(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+            ]
+        )
 
     # Add plane mesh to Polyscope
     struct = ps.register_surface_mesh(name, vertices=vertices, faces=faces)

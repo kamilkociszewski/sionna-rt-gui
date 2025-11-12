@@ -17,6 +17,10 @@ from .config import (
     RENDERING_MODE_NAMES,
 )
 from .rendering import render_scene
+from .ps_utils import (
+    set_polyscope_device_interop_funcs,
+    supports_direct_update_from_device,
+)
 from .sionna_utils import (
     add_radio_map_to_polyscope,
     set_or_update_radio_devices_polyscope,
@@ -45,6 +49,12 @@ class SionnaRtGui:
         self.rm_color_map_options = [v for v in plt.colormaps() if not v.endswith("_r")]
         self.rm_color_map_index = self.rm_color_map_options.index(
             self.cfg.radio_map.color_map
+        )
+        # Due to a current limitation, we can't have alpha on radio maps when using
+        # direct updates from the device.
+        self.cfg.radio_map.use_alpha = not (
+            self.cfg.radio_map.use_direct_update_from_device
+            and supports_direct_update_from_device()
         )
 
         # Paths results
@@ -106,6 +116,8 @@ class SionnaRtGui:
             ps.set_up_dir("z_up")
             ps.set_front_dir("y_front")
             ps.init()
+            if supports_direct_update_from_device():
+                set_polyscope_device_interop_funcs()
 
         # Polyscope structures & groups
         self.reset_and_setup_structures()
@@ -298,7 +310,7 @@ class SionnaRtGui:
                 )
                 ps.request_redraw()
 
-        # Automatic refinement of the radio map
+        # --- Automatic refinement of the radio map
         if self.radio_map is not None:
             if (
                 self.rm_accumulated_samples
@@ -311,8 +323,14 @@ class SionnaRtGui:
                         self.cfg.radio_map.samples_per_it
                         // len(self.scene._transmitters)
                     )
+                    # Note: vmin, vmax didn't change so we don't update the colorbar.
                     add_radio_map_to_polyscope(
-                        "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                        "radio_map",
+                        self.radio_map,
+                        self.ps_groups,
+                        self.cfg.radio_map,
+                        direct_update_from_device=self.cfg.radio_map.use_direct_update_from_device,
+                        use_alpha=self.cfg.radio_map.use_alpha,
                     )
 
         animation_tick(self, psim.GetIO().DeltaTime)
@@ -379,7 +397,12 @@ class SionnaRtGui:
         self.rm_accumulated_samples = 0
         if show:
             add_radio_map_to_polyscope(
-                "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                "radio_map",
+                self.radio_map,
+                self.ps_groups,
+                self.cfg.radio_map,
+                direct_update_from_device=self.cfg.radio_map.use_direct_update_from_device,
+                use_alpha=self.cfg.radio_map.use_alpha,
             )
 
     def compute_radio_map(self) -> rt.RadioMap | None:
@@ -387,7 +410,6 @@ class SionnaRtGui:
             return None
 
         solver = rt.RadioMapSolver()
-        # TODO: expose and pass down all the relevant parameters
         samples_per_tx = self.cfg.radio_map.samples_per_it // len(
             self.scene._transmitters
         )
@@ -778,7 +800,12 @@ class SionnaRtGui:
                 self.set_radio_map(self.compute_radio_map(), show=False)
             if needs_update or needs_visual_update:
                 add_radio_map_to_polyscope(
-                    "radio_map", self.radio_map, self.ps_groups, self.cfg.radio_map
+                    "radio_map",
+                    self.radio_map,
+                    self.ps_groups,
+                    self.cfg.radio_map,
+                    direct_update_from_device=self.cfg.radio_map.use_direct_update_from_device,
+                    use_alpha=self.cfg.radio_map.use_alpha,
                 )
 
             # TODO: plane / mesh picker (changes type of radio map)
