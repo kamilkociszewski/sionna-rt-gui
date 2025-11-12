@@ -117,6 +117,13 @@ def set_or_update_radio_devices_polyscope(
             for rd in radio_devices.values()
         ]
     )
+    # Don't show orientation if it's the default value (all zero Euler angles)
+    is_default = np.all(
+        np.array([rd.orientation.numpy()[0] for rd in radio_devices.values()]) == 0,
+        axis=1,
+    )
+    rd_orientations[is_default, :] = 0
+
     sphere_radius = struct.get_radius()
     struct.add_vector_quantity(
         name + "_orientation",
