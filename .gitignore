@@ -1,3 +1,4 @@
+.venv/
 *.pyc
 *.pyo
 *.pyd
@@ -30,3 +31,7 @@ overpass/
 # Polyscope / Dear ImGui
 .polyscope.ini
 imgui.ini
+
+
+# Tests: data files
+test/*.npz
