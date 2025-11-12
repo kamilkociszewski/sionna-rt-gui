@@ -168,10 +168,14 @@ class SionnaRtGui:
 
         # Load scene
         # TODO: preserve currently-selected scene across reloads
+        if not self.cfg.scene_filename.endswith(".xml"):
+            if self.cfg.scene_filename not in built_in_scenes:
+                raise ValueError(
+                    f'Scene "{self.cfg.scene_filename}" not found. Built-in scenes: {list(built_in_scenes.keys())}'
+                )
+            self.cfg.scene_filename = built_in_scenes[self.cfg.scene_filename]
         self.load_scene(
-            self.cfg.scene_filename
-            # or built_in_scenes["munich"]
-            or built_in_scenes["simple_street_canyon_with_cars"],
+            self.cfg.scene_filename,
             # If the program was just reloaded (live coding), don't move the camera
             recenter_camera=not was_initialized,
         )

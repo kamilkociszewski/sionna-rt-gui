@@ -188,7 +188,8 @@ class GuiConfig:
     use_vsync: bool = True
     background_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
-    scene_filename: str | None = None
+    # Either the path to an XML scene file, or the name of a built-in scene.
+    scene_filename: str = "simple_street_canyon_with_cars"
     loaded_from_snapshot: bool = False
 
     # Logging
