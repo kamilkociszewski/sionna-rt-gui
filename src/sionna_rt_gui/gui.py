@@ -753,6 +753,10 @@ class SionnaRtGui:
             psim.End()
 
         # --- Main GUI window
+        psim.SetNextWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
+        psim.SetNextWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
+        psim.Begin("Sionna RT##sionna", open=True)
+
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
