@@ -31,8 +31,6 @@ class SionnaRtGui:
         self.built_in_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
         self.scene: rt.Scene | None = None
-        self.tx_array_config: AntennaArrayConfig = AntennaArrayConfig()
-        self.rx_array_config: AntennaArrayConfig = AntennaArrayConfig()
 
         # Radio map results
         self.radio_map: rt.RadioMap | None = None
@@ -171,8 +169,8 @@ class SionnaRtGui:
         self.reset_and_setup_structures()
         self.scene = rt.load_scene(scene_path)
 
-        self.scene.tx_array = self.tx_array_config.create()
-        self.scene.rx_array = self.rx_array_config.create()
+        self.scene.tx_array = self.cfg.tx_array.create()
+        self.scene.rx_array = self.cfg.rx_array.create()
 
         # TODO: setup configurable radio material diffuse & thickness
         for sh in self.scene.mi_scene.shapes():

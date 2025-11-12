@@ -107,7 +107,6 @@ class PathsConfig:
     diffraction_lit_region: bool = False
 
 
-
 class RenderingMode(Enum):
     RASTERIZATION = 0
     RAY_TRACING = 1
@@ -149,16 +148,18 @@ class GuiConfig:
     # Logging
     log_level: int = logging.INFO
 
+    # Antenna arrays
+    tx_array: AntennaArrayConfig = field(default_factory=AntennaArrayConfig)
+    rx_array: AntennaArrayConfig = field(default_factory=AntennaArrayConfig)
+
     # Rendering
-    # TODO: auto-disable ray tracing if LLVM mode?
-    # TODO: relative rendering resolution picker (10%, 25%, 50%, 100%)
-    rendering: RenderingConfig = field(default_factory=lambda: RenderingConfig())
+    rendering: RenderingConfig = field(default_factory=RenderingConfig)
 
     # Radio map
-    radio_map: RadioMapConfig = field(default_factory=lambda: RadioMapConfig())
+    radio_map: RadioMapConfig = field(default_factory=RadioMapConfig)
 
     # Paths
-    paths: PathsConfig = field(default_factory=lambda: PathsConfig())
+    paths: PathsConfig = field(default_factory=PathsConfig)
 
 
 def load_config(config_path: str, data_path: str | None) -> GuiConfig:
