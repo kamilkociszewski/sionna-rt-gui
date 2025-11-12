@@ -665,17 +665,26 @@ class SionnaRtGui:
         )
         has_active_item = psim.IsAnyItemActive()
 
-        # Ctrl + left/right click: add transmitter/receiver
+        # TODO: +/- to zoom in/out
+
+        # K/L or (Ctrl + left/right click): add transmitter/receiver
+        has_k = psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("K")))
+        has_l = psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("L")))
         if (
-            imgui_io.KeyCtrl
-            and (has_left_click or has_right_click)
-            and not imgui_io.KeyShift
+            has_k
+            or has_l
+            or (
+                imgui_io.KeyCtrl
+                and (has_left_click or has_right_click)
+                and not imgui_io.KeyShift
+            )
         ):
-            is_transmitter = imgui_io.MouseClicked[0]
+            is_transmitter = imgui_io.MouseClicked[0] or has_k
             # TODO: configurable placement offset along the normal
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
             rd_position += (0, 0, 2.5)
-            self.add_radio_device(rd_position, is_transmitter)
+            if np.all(np.isfinite(rd_position)):
+                self.add_radio_device(rd_position, is_transmitter)
 
         # Plain left click: object selection
         if has_left_release and not (
@@ -686,6 +695,9 @@ class SionnaRtGui:
             or self.was_mouse_dragging
         ):
             self.process_pick_result(ps.pick(screen_coords=imgui_io.MousePos))
+
+        # TODO: keyboard shortcuts to move around (WASD + QE)
+        # TODO: keyboard shortcuts to rotate the envmap?
 
         # Shift + R: reload code
         if imgui_io.KeyShift and psim.IsKeyPressed(
@@ -726,6 +738,13 @@ class SionnaRtGui:
         # Tab: toggle show GUI (ours)
         if not has_active_item and psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
             self.cfg.gui_mode = GuiMode((self.cfg.gui_mode.value + 1) % len(GuiMode))
+
+        # Esc: close help window or de-select
+        if psim.IsKeyPressed(psim.ImGuiKey_Escape, repeat=False):
+            if self.cfg.show_help_window:
+                self.cfg.show_help_window = False
+            elif self.selected_object is not None:
+                self.clear_selection()
 
         # Ctrl + Q: exit
         if imgui_io.KeyCtrl and psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("Q"))):
