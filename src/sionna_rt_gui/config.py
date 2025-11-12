@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import logging
 import os
-
 import yaml
 
 from omegaconf import OmegaConf
@@ -96,6 +96,9 @@ class GuiConfig:
 
     scene_filename: str | None = None
     loaded_from_snapshot: bool = False
+
+    # Logging
+    log_level: int = logging.INFO
 
     # Rendering
     # TODO: auto-disable ray tracing if LLVM mode?

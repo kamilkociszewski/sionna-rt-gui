@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 
 from common import add_project_root_to_path
@@ -33,6 +34,11 @@ def main():
     }
     data_path = None
     cfg = load_config(args.config, data_path=data_path)
+
+    # Configure logging
+    logging.basicConfig(
+        level=cfg.log_level, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
     # --- Initialization
     app = AppHolder(cfg, data_path=data_path, overrides=cfg_overrides)
