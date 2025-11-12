@@ -1,3 +1,5 @@
+import os
+
 import drjit as dr
 import numpy as np
 import polyscope as ps
@@ -6,7 +8,7 @@ from sionna.rt.constants import DEFAULT_TRANSMITTER_COLOR, DEFAULT_RECEIVER_COLO
 from sionna.rt.utils.geometry import rotation_matrix
 from sionna.rt.utils.render import scene_scale
 
-from .config import RadioMapConfig, PathsConfig
+from . import SCENES_DIR
 
 
 ITU_TO_PS_MATERIAL = {
@@ -33,6 +35,12 @@ def get_built_in_scenes() -> dict[str, str]:
         var = getattr(rt.scene, var_name)
         if isinstance(var, str) and var.endswith(".xml"):
             result[var_name] = var
+
+    for dir_name in os.listdir(SCENES_DIR):
+        scene_fname = os.path.join(SCENES_DIR, dir_name, f"{dir_name}.xml")
+        if os.path.exists(scene_fname):
+            # Note: this may override a built-in Sionna RT scene.
+            result[dir_name] = scene_fname
 
     return result
 
