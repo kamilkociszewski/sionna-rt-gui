@@ -10,6 +10,7 @@ import polyscope.imgui as psim
 from sionna import rt
 from sionna.rt.scene_utils import remove_objects_duplicate_vertices
 
+from . import __version__ as GUI_VERSION
 from .animation import AnimationConfig, animation_gui, animation_tick
 from .antenna_array import antenna_array_gui
 from .config import (
@@ -34,6 +35,36 @@ from .sionna_utils import (
     add_paths_to_polyscope,
 )
 from .selection import SelectionType, selection_gui
+
+
+HELP_WINDOW_TABLES = {
+    "Camera controls": {
+        "Left click + drag": "Camera rotation",
+        "Right click + drag": "Camera panning",
+        "Shift + left click + drag": "Camera panning",
+        "Mouse scroll": "Camera zoom",
+        "Ctrl + shift + left click + drag": "Continuous camera zoom",
+        "R": "Reset camera to initial position",
+        "F": "Fit scene to camera",
+    },
+    "Mouse bindings": {
+        "Left click": "Select a radio device",
+        "Ctrl + left click": "Add transmitter",
+        "Ctrl + right click": "Add receiver",
+    },
+    "Key bindings": {
+        "H / ?": "Show this help window",
+        "K": "Add transmitter at the current mouse position",
+        "L": "Add receiver at the current mouse position",
+        "M": "Show / hide radio map. Requires at least one transmitter.",
+        "C": "Go to next rendering mode",
+        "Tab": "Go to next GUI mode (can be used to hide the GUI)",
+        "Esc": "Close help window or de-select current object",
+        "Del (with item selected)": "Delete radio device",
+        "Shift + R": "Reload application",
+        "Ctrl + Q": "Exit",
+    },
+}
 
 
 class SionnaRtGui:
@@ -718,6 +749,13 @@ class SionnaRtGui:
                 RenderingMode((self.cfg.rendering.mode.value + 1) % len(RenderingMode))
             )
 
+        # H / ?: show help window
+        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("H")), repeat=False) or (
+            imgui_io.KeyShift
+            and psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("/")), repeat=False)
+        ):
+            self.cfg.show_help_window = not self.cfg.show_help_window
+
         # M: toggle radio map computation and display
         if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("M")), repeat=False):
             rm_visible, rm_struct = self.has_visible_radio_map()
@@ -789,6 +827,10 @@ class SionnaRtGui:
         if self.selected_object is not None:
             selection_gui(self, self.selected_object, self.selected_type)
 
+        # --- Help window
+        if self.cfg.show_help_window:
+            self.gui_help_window()
+
         # --- Colorbar window
         if (
             self.has_visible_radio_map()[0]
@@ -823,6 +865,14 @@ class SionnaRtGui:
         psim.Begin("Sionna RT##sionna", open=True)
 
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
+
+        psim.SameLine()
+        bw = 20
+        psim.SetCursorPosX(
+            psim.GetCursorPosX() + psim.GetContentRegionAvail()[0] - bw - 0
+        )
+        if psim.Button("?", size=(bw, 0)):
+            self.cfg.show_help_window = not self.cfg.show_help_window
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
@@ -1117,4 +1167,49 @@ class SionnaRtGui:
 
         return any_changed
 
+    def gui_help_window(self):
+        window_resolution = ps.get_window_size()
+        w, h = 600, 600
+        psim.SetNextWindowSize((w, h), psim.ImGuiCond_FirstUseEver)
+        psim.SetNextWindowPos(
+            (0.5 * (window_resolution[0] - w), 0.5 * (window_resolution[1] - h)),
+            psim.ImGuiCond_FirstUseEver,
+        )
+
+        _, self.cfg.show_help_window = psim.Begin(
+            "Help",
+            open=True,
+            flags=psim.ImGuiWindowFlags_Modal
+            | psim.ImGuiWindowFlags_NoFocusOnAppearing,
+        )
+
+        psim.Text(
+            f"Sionna RT GUI v{GUI_VERSION[0]}.{GUI_VERSION[1]}.{GUI_VERSION[2]}.\n(c) NVIDIA Corporation 2025.\n\n"
+            "Uses map data from OpenStreetMap (openstreetmap.org/copyright)."
+        )
+
+        psim.NewLine()
+
+        for title, table in HELP_WINDOW_TABLES.items():
+            # Centered text
+            text_pos = (
+                psim.GetCursorPosX()
+                + psim.GetColumnWidth(0) * 0.5
+                - psim.CalcTextSize(title)[0]
+            )
+            psim.SetCursorPosX(text_pos)
+            psim.Text(title)
+
+            psim.Separator()
+            psim.Columns(2)
+            psim.SetColumnWidth(0, 220)
+            psim.Text(os.linesep.join(table.keys()))
+            psim.NextColumn()
+            psim.Text(os.linesep.join(table.values()))
+            psim.Columns(1)
+            psim.Separator()
+
+            psim.NewLine()
+
+        psim.Columns(1)
         psim.End()

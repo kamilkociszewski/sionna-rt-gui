@@ -183,6 +183,7 @@ class GuiConfig:
 
     gui_mode: GuiMode = GuiMode.FULL
     show_polyscope_gui: bool = False
+    show_help_window: bool = False
     use_live_reload: bool = False
     use_vsync: bool = True
     background_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
