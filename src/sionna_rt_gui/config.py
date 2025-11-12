@@ -86,6 +86,7 @@ class RadioMapConfig:
     use_alpha: bool = True
     vmin: float = -150
     vmax: float = -50
+    show_colorbar: bool = True
     # When updating the radio map, upload new values directly from the device.
     # This is only supported when using a CUDA variant.
     use_direct_update_from_device: bool = True

@@ -130,3 +130,65 @@ def radio_map_color_mapping(
 
     color_map = DrColormap(color_map)
     return radio_map, normalizer, color_map
+
+
+def radio_map_colorbar_to_image(
+    cmap: str, vmin: float, vmax: float, dpi: int = 100
+) -> np.ndarray:
+    """
+    Returns a numpy array of the colorbar image in linear floating point RGBA format,
+    with premultiplied alpha.
+    """
+
+    fig = plt.figure(figsize=(6, 0.2), dpi=dpi)
+    ax = fig.add_axes([0.01, 0.01, 0.98, 0.8])
+
+    _ = matplotlib.colorbar.Colorbar(
+        ax=ax,
+        cmap=cmap,
+        norm=matplotlib.colors.Normalize(vmin=vmin, vmax=vmax),
+        orientation="horizontal",
+    )
+
+    # Adjust text color, size, and add outline
+    ax.tick_params(labelcolor="black", grid_color="black", which="both", labelsize=14)
+    for spine in ax.spines.values():
+        spine.set_color("white")
+    for label in ax.get_xticklabels():
+        label.set_path_effects(
+            [
+                path_effects.withStroke(linewidth=4, foreground="white"),
+            ]
+        )
+
+    # Add dB unit label
+    unit_text = ax.text(
+        1.02,
+        0.5,
+        "dB",
+        transform=ax.transAxes,
+        fontsize=14,
+        color="black",
+        verticalalignment="center",
+        horizontalalignment="left",
+    )
+    unit_text.set_path_effects(
+        [path_effects.withStroke(linewidth=3, foreground="white")]
+    )
+
+    renderer = fig.canvas.get_renderer()
+    tight_bbox = fig.get_tightbbox(renderer)
+
+    with io.BytesIO() as buff:
+        fig.savefig(
+            buff, format="raw", bbox_inches="tight", pad_inches=0.1, transparent=True
+        )
+        buff.seek(0)
+        data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+
+    w, h = (tight_bbox.width + 0.2) * dpi, (tight_bbox.height + 0.2) * dpi
+    data = data.reshape((int(h), int(w), 4)).copy()
+
+    data = (data / 255.0).astype(np.float32)
+    data[..., :3] *= data[..., 3:4]
+    return data

@@ -17,6 +17,7 @@ from .config import (
     RENDERING_MODE_NAMES,
 )
 from .rendering import render_scene
+from .rm_utils import radio_map_colorbar_to_image
 from .ps_utils import (
     set_polyscope_device_interop_funcs,
     supports_direct_update_from_device,
@@ -50,6 +51,8 @@ class SionnaRtGui:
         self.rm_color_map_index = self.rm_color_map_options.index(
             self.cfg.radio_map.color_map
         )
+        self.rm_colorbar: np.ndarray | None = None
+        self.rm_colorbar_texture_id: int | None = None
         # Due to a current limitation, we can't have alpha on radio maps when using
         # direct updates from the device.
         self.cfg.radio_map.use_alpha = not (
@@ -401,6 +404,8 @@ class SionnaRtGui:
     def set_radio_map(self, radio_map: rt.RadioMap, show: bool = False):
         self.radio_map = radio_map
         self.rm_accumulated_samples = 0
+        self.update_radio_map_colorbar()
+
         if show:
             add_radio_map_to_polyscope(
                 "radio_map",
@@ -410,6 +415,26 @@ class SionnaRtGui:
                 direct_update_from_device=self.cfg.radio_map.use_direct_update_from_device,
                 use_alpha=self.cfg.radio_map.use_alpha,
             )
+
+    def update_radio_map_colorbar(self):
+        # Draw the colorbar to an array.
+        self.rm_colorbar = radio_map_colorbar_to_image(
+            self.cfg.radio_map.color_map,
+            self.cfg.radio_map.vmin,
+            self.cfg.radio_map.vmax,
+        )
+        # Note: we upload the colorbar to a texture, even if it's not shown right now.
+        ps.add_color_alpha_image_quantity(
+            "rm_colorbar",
+            values=self.rm_colorbar,
+            enabled=True,
+            image_origin="upper_left",
+            show_fullscreen=False,
+            # show_in_camera_billboard=True,
+        )
+        self.rm_colorbar_texture_id = ps.get_quantity_buffer(
+            "rm_colorbar", "colors"
+        ).get_texture_native_id()
 
     def compute_radio_map(self) -> rt.RadioMap | None:
         if not self.scene._transmitters:
@@ -554,6 +579,8 @@ class SionnaRtGui:
     def clear_radio_map(self):
         self.radio_map = None
         self.rm_accumulated_samples = 0
+        self.rm_colorbar = None
+        self.rm_colorbar_texture_id = None
         if ps.has_surface_mesh("radio_map"):
             ps.get_surface_mesh("radio_map").remove()
 
@@ -578,7 +605,6 @@ class SionnaRtGui:
             psim.ImGuiMouseButton_Right
         )
         has_active_item = psim.IsAnyItemActive()
-
 
         # Ctrl + left/right click: add transmitter/receiver
         if (
@@ -668,8 +694,35 @@ class SionnaRtGui:
         if self.selected_object is not None:
             selection_gui(self, self.selected_object, self.selected_type)
 
-        # --- Main GUI window
+        # --- Colorbar window
+        if (
+            self.has_visible_radio_map()[0]
+            and self.cfg.radio_map.show_colorbar
+            and (self.rm_colorbar is not None)
+            and hasattr(psim, "Image")
+        ):
+            window_resolution = ps.get_window_size()
+            h, w = self.rm_colorbar.shape[:2]
+            psim.SetNextWindowSize((w, h))
+            psim.SetNextWindowPos((0.5 * (window_resolution[0] - w), 5))
+            psim.Begin(
+                "Colorbar",
+                open=True,
+                flags=(
+                    psim.ImGuiWindowFlags_NoTitleBar
+                    | psim.ImGuiWindowFlags_NoDecoration
+                    | psim.ImGuiWindowFlags_NoBackground
+                ),
+            )
+            psim.SetCursorPosX(0)
+            psim.SetCursorPosY(0)
+            psim.Image(
+                self.rm_colorbar_texture_id,
+                (self.rm_colorbar.shape[1], self.rm_colorbar.shape[0]),
+            )
+            psim.End()
 
+        # --- Main GUI window
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
@@ -808,6 +861,7 @@ class SionnaRtGui:
             if self.cfg.radio_map.auto_update and needs_update:
                 self.set_radio_map(self.compute_radio_map(), show=False)
             if needs_update or needs_visual_update:
+                self.update_radio_map_colorbar()
                 add_radio_map_to_polyscope(
                     "radio_map",
                     self.radio_map,
