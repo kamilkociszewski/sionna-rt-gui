@@ -161,12 +161,23 @@ class RenderingConfig:
 # ------------------------
 
 
+class GuiMode(Enum):
+    HIDDEN = 0
+    FULL = 1
+
+
+GUI_MODE_NAMES = ["Hidden", "Full"]
+assert len(GUI_MODE_NAMES) == len(GuiMode)
+
+# ------------------------
+
+
 @dataclass(kw_only=True)
 class GuiConfig:
     title: str = "Sionna RT"
     config_path: str
 
-    show_gui: bool = True
+    gui_mode: GuiMode = GuiMode.FULL
     show_polyscope_gui: bool = False
     use_live_reload: bool = False
     use_vsync: bool = True

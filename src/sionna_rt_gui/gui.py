@@ -577,6 +577,8 @@ class SionnaRtGui:
         has_right_click = allow_click and psim.IsMouseClicked(
             psim.ImGuiMouseButton_Right
         )
+        has_active_item = psim.IsAnyItemActive()
+
 
         # Ctrl + left/right click: add transmitter/receiver
         if (
@@ -600,7 +602,6 @@ class SionnaRtGui:
         ):
             self.process_pick_result(ps.pick(screen_coords=imgui_io.MousePos))
 
-
         # Shift + R: reload code
         if imgui_io.KeyShift and psim.IsKeyPressed(
             psim.ImGuiKey(ps.get_key_code("R")), repeat=False
@@ -621,15 +622,11 @@ class SionnaRtGui:
             )
 
         # Tab: toggle show GUI (ours)
-        if psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
-            self.cfg.show_gui = not self.cfg.show_gui
+        if not has_active_item and psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
+            self.cfg.gui_mode = GuiMode((self.cfg.gui_mode.value + 1) % len(GuiMode))
 
-        # Exit
-        if (
-            imgui_io.KeyCtrl
-            and psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("Q")))
-            or psim.IsKeyPressed(psim.ImGuiKey_Escape)
-        ):
+        # Ctrl + Q: exit
+        if imgui_io.KeyCtrl and psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("Q"))):
             ps.unshow()
 
         self.was_mouse_dragging = has_mouse_drag
@@ -662,21 +659,21 @@ class SionnaRtGui:
             ps.get_curve_network("Trajectory").remove()
 
     def gui(self):
-        # TODO: set ImGui window title
         # TODO: change GUI accent color to a non-default color.
 
-        if not self.cfg.show_gui:
+        if self.cfg.gui_mode == GuiMode.HIDDEN:
             return
 
-        psim.SetWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
-        psim.SetWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
-        psim.Begin("SionnaRT##sionna", open=True)
+        # --- Selection window
+        if self.selected_object is not None:
+            selection_gui(self, self.selected_object, self.selected_type)
+
+        # --- Main GUI window
 
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
-            # psim.Text(f"Current scene:\n{os.path.basename(self.cfg.scene_filename)}")
 
             # Quick pick from built-in scenes
             psim.Text("Scene selection:")
