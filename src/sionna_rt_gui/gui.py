@@ -102,7 +102,9 @@ class SionnaRtGui:
         # Window size and position will be loaded from the last run from `.polyscope.ini`
         ps.set_use_prefs_file(True)
         ps.set_enable_vsync(cfg.use_vsync)
-        ps.set_max_fps(-1)
+        # On some machines (especially with remote access), VSync doesn't do anything,
+        # so we cap fps as well.
+        ps.set_max_fps(60)
         ps.set_user_gui_is_on_right_side(False)
         ps.set_open_imgui_window_for_user_callback(False)
         ps.set_verbosity(1)
