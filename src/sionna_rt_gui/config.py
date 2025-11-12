@@ -133,6 +133,10 @@ class RenderingConfig:
     envmap: str | None = os.path.join(
         DATA_DIR, "envmaps", "teufelsberg_ground_2_1k.exr"
     )
+    # Brightness factor to apply to the environment map.
+    envmap_factor: float = 1.0
+    # Rotation of the environment map along the vertical axis, in degrees.
+    envmap_rotation_deg: float = -60
 
     @property
     def rendering_resolution(self) -> tuple[int, int]:

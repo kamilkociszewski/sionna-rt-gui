@@ -55,9 +55,16 @@ def setup_scene_for_rendering(
         #  clip_at: float | None = None,
         #  clip_plane_orientation: tuple[float, float, float] = (0, 0, -1),
         #  envmap: str | None = None,
-        lighting_scale=1.25,
+        lighting_scale=cfg.envmap_factor,
         #  exclude_mesh_ids: set[str] = None
     )
+    # Envmap rotation
+    if "emitter" in visual_scene_dict:
+        emitter = visual_scene_dict["emitter"]
+        emitter["to_world"] = mi.ScalarTransform4f.rotate(
+            axis=(0, 0, 1), angle=cfg.envmap_rotation_deg
+        ) @ emitter.get("to_world", mi.ScalarTransform4f())
+
     visual_scene = mi.load_dict(visual_scene_dict)
 
     # Hack for better sampling: zero-out the bottom half or so of the envmap,
