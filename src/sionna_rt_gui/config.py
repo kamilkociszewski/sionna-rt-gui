@@ -122,13 +122,24 @@ class RenderingConfig:
     # Full resolution of the window
     default_resolution: tuple[int, int] = (1920, 1080)
     # Relative resolution for ray traced rendering
+    # TODO: relative rendering resolution picker (10%, 25%, 50%, 100%)
     relative_resolution: float = 0.5
     spp_per_frame: int = 16
-    max_accumulated_spp: int = 1024
+    max_accumulated_spp: int = 256
+
+    # Use the OptiX denoiser (CUDA variant only)
+    use_denoiser: bool = True
 
     envmap: str | None = os.path.join(
         DATA_DIR, "envmaps", "teufelsberg_ground_2_1k.exr"
     )
+
+    @property
+    def rendering_resolution(self) -> tuple[int, int]:
+        return (
+            int(self.default_resolution[0] * self.relative_resolution),
+            int(self.default_resolution[1] * self.relative_resolution),
+        )
 
 
 @dataclass(kw_only=True)

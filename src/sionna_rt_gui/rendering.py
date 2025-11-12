@@ -15,6 +15,7 @@ from .config import RenderingConfig, RenderingMode
 def setup_scene_for_rendering(
     cfg: RenderingConfig,
     scene: rt.Scene,
+    use_denoiser: bool = False,
 ) -> dict[str, Any]:
     from mitsuba.python.util import _RenderOp
 
@@ -23,10 +24,7 @@ def setup_scene_for_rendering(
     ), "This function is supposed to be called with an RGB variant."
 
     # TODO: adapt if the window is resized
-    render_res = (
-        int(cfg.default_resolution[0] * cfg.relative_resolution),
-        int(cfg.default_resolution[1] * cfg.relative_resolution),
-    )
+    render_res = cfg.rendering_resolution
     fov_y_deg = ps.get_view_camera_parameters().get_fov_vertical_deg()
     sensor = mi.load_dict(
         {
@@ -74,7 +72,11 @@ def setup_scene_for_rendering(
     integrator = mi.load_dict(
         {
             "type": "aov",
-            "aovs": "dd.y:depth",
+            "aovs": (
+                "albedo:albedo,normals:sh_normal,dd.y:depth"
+                if use_denoiser
+                else "dd.y:depth"
+            ),
             "integrator": {
                 "type": "path",
                 "hide_emitters": True,
@@ -117,7 +119,8 @@ def _render_scene(
     seed: int,
     camera_changed: bool,
     cache: dict[str, Any],
-) -> tuple[mi.TensorXf, mi.TensorXf, dict[str, Any]]:
+    use_denoiser: bool = False,
+) -> tuple[mi.TensorXf, list[mi.TensorXf], dict[str, Any]]:
     """
     Note that even though this function does RGB rendering, we do *not*
     need to switch variant, because all the relevant objects were already
@@ -195,7 +198,14 @@ def _render_scene(
     depth = perpendicular_depth / radial_factor
     depth = dr.select(depth == 0, dr.inf, depth)
 
-    return rgb, depth, cache
+    aovs = [depth]
+    if use_denoiser:
+        # Albedo
+        aovs.append(img[..., 3:6])
+        # Normals
+        aovs.append(img[..., 6:9])
+
+    return rgb, aovs, cache
 
 
 def render_scene(
@@ -204,12 +214,15 @@ def render_scene(
     seed: int,
     camera_changed: bool,
     cache: dict[str, Any] = None,
+    use_denoiser: bool = False,
 ) -> tuple[mi.TensorXf, mi.TensorXf, dict[str, Any]]:
     assert cfg.mode == RenderingMode.RAY_TRACING
 
     if cache is None:
         with mi.scoped_set_variant("cuda_ad_rgb", "llvm_ad_rgb"):
-            cache = setup_scene_for_rendering(cfg, scene)
+            cache = setup_scene_for_rendering(cfg, scene, use_denoiser=use_denoiser)
         camera_changed = True
 
-    return _render_scene(cfg, seed, camera_changed, cache=cache)
+    return _render_scene(
+        cfg, seed, camera_changed, cache=cache, use_denoiser=use_denoiser
+    )

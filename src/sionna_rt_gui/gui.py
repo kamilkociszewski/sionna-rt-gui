@@ -7,8 +7,15 @@ import polyscope.imgui as psim
 from sionna import rt
 
 from .animation import AnimationConfig, animation_gui, animation_tick
-from .antenna_array import AntennaArrayConfig, antenna_array_gui
-from .config import GuiConfig, RenderingMode, RENDERING_MODE_NAMES
+from .antenna_array import antenna_array_gui
+from .config import (
+    GuiConfig,
+    RadioMapConfig,
+    PathsConfig,
+    GuiMode,
+    RenderingMode,
+    RENDERING_MODE_NAMES,
+)
 from .rendering import render_scene
 from .sionna_utils import (
     add_radio_map_to_polyscope,
@@ -49,13 +56,19 @@ class SionnaRtGui:
         self.ray_traced_depth: mi.TensorXf | None = None
         self.previous_camera_pose: np.ndarray = ps.get_camera_view_matrix()
         self.rendering_accumulated_samples: int = 0
+        self.reset_accumulation_requested: bool = False
+        self.denoiser: mi.OptixDenoiser | None = None
+        if "cuda" in mi.variant():
+            self.set_use_denoiser(self.cfg.rendering.use_denoiser)
+        else:
+            # If there is no CUDA-compatible GPU, switch to rasterization (cheaper).
+            self.cfg.rendering.mode = RenderingMode.RASTERIZATION
 
         # --- Animation state
         self.animation_config: AnimationConfig = AnimationConfig()
 
         # --- Inputs state
         self.last_mouse_pos: mi.ScalarVector2f | None = None
-        self.reset_accumulation_requested = False
 
         self.snapshot_load_requested: bool = False
         self.code_reload_requested: bool = False
@@ -231,25 +244,30 @@ class SionnaRtGui:
     def tick(self):
         self.process_inputs()
 
+        # --- Rendering
         if self.cfg.rendering.mode == RenderingMode.RAY_TRACING:
-            camera_changed = not np.allclose(
+            camera_changed = self.reset_accumulation_requested or not np.allclose(
                 self.previous_camera_pose, ps.get_camera_view_matrix()
             )
             if camera_changed:
                 self.rendering_reset_accumulation()
+                self.reset_accumulation_requested = False
 
             if (
                 self.rendering_accumulated_samples
                 < self.cfg.rendering.max_accumulated_spp
             ):
-                # TODO: since we don't accumulate in the depth buffer (?), can skip rendering depth.
-                new_img, self.ray_traced_depth, self.render_cache = render_scene(
+                # TODO: we could potentially skip rendering depth in subsequent frames,
+                #       since we only accumulate RGB.
+                new_img, aovs, self.render_cache = render_scene(
                     self.cfg.rendering,
                     self.scene,
                     seed=self.frame_i,
                     camera_changed=camera_changed,
                     cache=self.render_cache,
+                    use_denoiser=self.denoiser is not None,
                 )
+                self.ray_traced_depth = aovs[0]
                 if self.ray_traced_img is None:
                     self.ray_traced_img = new_img
                 else:
@@ -261,10 +279,16 @@ class SionnaRtGui:
                     self.ray_traced_img = (1 - t) * self.ray_traced_img + t * new_img
                 self.rendering_accumulated_samples += self.cfg.rendering.spp_per_frame
 
+                if self.denoiser is not None:
+                    to_sensor = mi.ScalarTransform4f(ps.get_camera_view_matrix())
+                    self.ray_traced_img = self.denoiser(
+                        self.ray_traced_img,
+                        albedo=aovs[1],
+                        normals=aovs[2],
+                        to_sensor=to_sensor,
+                    )
+
                 # TODO: setup direct buffer write with GL interop, etc
-                # TODO: fix depth so that Polyscope can do correct compositing
-                # TODO: accumulate rendering samples (multiple frames)
-                # TODO: optix-based denoising, if available.
                 ps.add_raw_color_render_image_quantity(
                     "ray_traced_img",
                     depth_values=self.ray_traced_depth.numpy(),
@@ -308,6 +332,24 @@ class SionnaRtGui:
         # Hide Polyscope-side meshes if we are ray tracing.
         self.ps_groups["scene"].set_enabled(not is_ray_tracing)
 
+    def set_use_denoiser(self, use_denoiser: bool):
+        self.cfg.rendering.use_denoiser = use_denoiser
+
+        # The integrator will be re-created, so we reset the rendering cache.
+        # TODO: could do this more surgically, no need to re-create the whole scene.
+        self.render_cache = None
+
+        if self.cfg.rendering.use_denoiser:
+            self.denoiser = mi.OptixDenoiser(
+                input_size=self.cfg.rendering.rendering_resolution,
+                albedo=True,
+                normals=True,
+                temporal=False,
+            )
+        else:
+            self.denoiser = None
+        self.rendering_reset_accumulation()
+
     def rendering_reset_accumulation(self):
         self.rendering_accumulated_samples = 0
         if self.ray_traced_img is not None:
@@ -320,7 +362,7 @@ class SionnaRtGui:
         self.ray_traced_depth = None
         self.rendering_accumulated_samples = 0
 
-        # TODO: more robust way to get this info from Polyscop
+        # TODO: more robust way to get this info from Polyscope
         if had_image:
             # TODO: proper way to remove / disable the buffer in Polyscope.
             ps.add_raw_color_alpha_render_image_quantity(
@@ -368,7 +410,6 @@ class SionnaRtGui:
             edge_diffraction=self.cfg.radio_map.edge_diffraction,
             diffraction_lit_region=self.cfg.radio_map.diffraction_lit_region,
         )
-
 
     # ------------------------
 
@@ -805,6 +846,15 @@ class SionnaRtGui:
             if changed:
                 self.cfg.rendering.mode = RenderingMode(combo_i)
                 self.set_rendering_mode(self.cfg.rendering.mode)
+
+            if (self.cfg.rendering.mode == RenderingMode.RAY_TRACING) and (
+                "cuda" in mi.variant()
+            ):
+                changed, self.cfg.rendering.use_denoiser = psim.Checkbox(
+                    "Use OptiX denoiser", self.cfg.rendering.use_denoiser
+                )
+                if changed:
+                    self.set_use_denoiser(self.cfg.rendering.use_denoiser)
 
             changed, self.cfg.use_vsync = psim.Checkbox("VSync", self.cfg.use_vsync)
             if changed:
