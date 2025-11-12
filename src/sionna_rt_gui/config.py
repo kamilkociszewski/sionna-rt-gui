@@ -102,6 +102,9 @@ class RadioMapConfig:
 @dataclass(kw_only=True)
 class PathsConfig:
     auto_update: bool = True
+    # Minimum delay between path computations (expensive ray tracing)
+    # Set this higher (e.g., 0.1-1.0) to reduce GPU load when animations are playing
+    min_update_delay_s: float = 0.0  # 0 = update every frame (default behavior)
     accumulate_max_samples_per_src: int = int(1e9)
 
     max_depth: int = 5

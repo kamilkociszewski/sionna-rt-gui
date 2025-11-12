@@ -1,3 +1,6 @@
+import os
+import time
+
 import drjit as dr
 import mitsuba as mi
 import numpy as np
@@ -141,9 +144,9 @@ class SionnaRtGui:
             recenter_camera=not was_initialized,
         )
 
-        # --- Test data (for convenience)
-        # TODO: remove this
         if True:
+            # --- Test data (for convenience)
+            # TODO: remove this
             # Add some example transmitters
             for pos in [
                 # [50, -10, 29 + 2.5],
@@ -164,21 +167,20 @@ class SionnaRtGui:
                 traj.add_point(p + [30, 10, 0])
                 traj.enabled = True
                 self.animation_config.playing = True
-            if True:
+            if False:
                 self.selected_object = self.scene.get("tx-0")
                 self.selected_type = SelectionType.Transmitter
 
-        if False:
-            self.set_radio_map(self.compute_radio_map(), show=True)
-        if False:
-            self.paths = self.compute_paths()
-            add_paths_to_polyscope(self, self.paths, self.ps_groups)
+            if self.cfg.radio_map.auto_update:
+                self.set_radio_map(self.compute_radio_map(), show=True)
+            if self.cfg.paths.auto_update:
+                self.update_paths(show=True)
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
         self.clear_radio_map()
         self.clear_selection()
-        self.paths = None
+        self.clear_paths()
         self.clear_ray_traced_image()
 
         # Clear Polyscope state
@@ -479,6 +481,44 @@ class SionnaRtGui:
 
     # ------------------------
 
+    def update_paths(self, clear_first: bool = False, show: bool = True):
+        # Throttle expensive path computations to reduce GPU load
+        current_time = time.time()
+        time_since_last_update = current_time - self._last_paths_update_time
+        if time_since_last_update < self.cfg.paths.min_update_delay_s:
+            return  # Skip this update
+
+        if clear_first:
+            self.clear_paths()
+
+        self.paths = self.compute_paths()
+        self._last_paths_update_time = current_time
+        if self.paths is None:
+            return
+
+        if show:
+            add_paths_to_polyscope(self, self.paths, self.ps_groups)
+
+        # TODO: checkbox to disable this? (only if it's too slow)
+        self.paths_taps = self.paths.taps(
+            bandwidth=self.cfg.paths.bandwidth,
+            l_min=self.cfg.paths.l_min,
+            l_max=self.cfg.paths.l_max,
+            sampling_frequency=self.cfg.paths.sampling_frequency,
+            num_time_steps=self.cfg.paths.num_time_steps,
+            normalize=self.cfg.paths.normalize,
+            normalize_delays=self.cfg.paths.normalize_delays,
+            out_type="numpy",
+        )
+        self.paths_cir = self.paths.cir(normalize_delays=True, out_type="numpy")
+
+        # If self.paths_cir[0] has no elements, replace self.paths_taps with zeros, first element = 1e-10
+        if np.sum(self.paths_cir[0]) == 0:
+            # Set the first element to 1e-10
+            self.paths_taps[0, 0, 0, 0, 0, 0] = 1e-10
+
+        self.paths_changed_timestamp = time.time()
+
     def compute_paths(self) -> rt.Paths | None:
         if not self.scene._transmitters or not self.scene._receivers:
             return None
@@ -507,7 +547,7 @@ class SionnaRtGui:
         position: list[float],
         is_transmitter: bool,
         allow_auto_update: bool = True,
-    ):
+    ) -> rt.RadioDevice:
         # TODO: controllable offset to the clicked surface (along normal?)
         existing_rd = (
             self.scene._transmitters if is_transmitter else self.scene._receivers
@@ -535,6 +575,7 @@ class SionnaRtGui:
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
             self.set_radio_map(self.compute_radio_map(), show=True)
         if allow_auto_update and self.cfg.paths.auto_update:
+            self.update_paths(show=True)
 
         return new_rd
 
@@ -916,14 +957,14 @@ class SionnaRtGui:
             psim.Spacing()
             needs_update = False
 
+            clicked = psim.Button("Compute paths")
+            if clicked:
+                self.update_paths(show=True)
+
+            psim.SameLine()
             _, self.cfg.paths.auto_update = psim.Checkbox(
                 "Automatic update##paths", self.cfg.paths.auto_update
             )
-
-            clicked = psim.Button("Compute paths")
-            if clicked:
-                self.paths = self.compute_paths()
-                add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
             changed, self.cfg.paths.max_depth = psim.SliderInt(
                 "Max depth##paths",
@@ -950,7 +991,7 @@ class SionnaRtGui:
             needs_visual_update = False
 
             if self.cfg.paths.auto_update and needs_update:
-                self.paths = self.compute_paths()
+                self.update_paths(show=False)
             if needs_update or needs_visual_update:
                 add_paths_to_polyscope(self, self.paths, self.ps_groups)
 

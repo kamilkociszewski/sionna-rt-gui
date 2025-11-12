@@ -11,7 +11,7 @@ from sionna import rt
 from sionna.rt.utils.geometry import rotation_matrix
 
 from .animation import trajectory_gui
-from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
+from .sionna_utils import set_or_update_radio_devices_polyscope
 
 
 class SelectionType(StrEnum):
@@ -175,9 +175,6 @@ def selection_gui(
             gui.reset_radio_map()
 
         if gui.cfg.paths.auto_update:
-            # TODO: probably should move this to a little method
-            gui.clear_paths()
-            gui.paths = gui.compute_paths()
-            add_paths_to_polyscope(gui, gui.paths, gui.ps_groups)
+            gui.update_paths(clear_first=True, show=True)
 
     psim.End()

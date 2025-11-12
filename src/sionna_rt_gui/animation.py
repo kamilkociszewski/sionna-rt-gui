@@ -262,7 +262,4 @@ def animation_tick(gui: "SionnaRtGui", time_delta: float):
             )
 
         if gui.cfg.paths.auto_update:
-            # TODO: probably should move this to a little method
-            gui.clear_paths()
-            gui.paths = gui.compute_paths()
-            add_paths_to_polyscope(gui.paths, gui.ps_groups, gui.cfg.paths)
+            gui.update_paths(show=True)
