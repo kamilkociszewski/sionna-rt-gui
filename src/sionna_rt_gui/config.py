@@ -7,8 +7,50 @@ import os
 import yaml
 
 from omegaconf import OmegaConf
+from sionna import rt
+from sionna.rt.antenna_pattern import (
+    antenna_pattern_registry,
+    polarization_registry,
+)
 
 from . import DATA_DIR
+
+
+@dataclass(kw_only=True)
+class AntennaArrayConfig:
+    """
+    Class holding configuration parameters for an antenna array.
+    This is needed because once created, antenna array objects don't
+    expose those fields.
+    """
+
+    num_rows: int = 1
+    num_cols: int = 1
+    vertical_spacing: float = 0.5
+    horizontal_spacing: float = 0.5
+    pattern_i: int = antenna_pattern_registry.list().index("iso")
+    polarization_i: int = polarization_registry.list().index("V")
+
+    @property
+    def pattern(self) -> str:
+        return antenna_pattern_registry.list()[self.pattern_i]
+
+    @property
+    def polarization(self) -> str:
+        return polarization_registry.list()[self.polarization_i]
+
+    def create(self) -> rt.AntennaArray:
+        return rt.PlanarArray(
+            num_rows=self.num_rows,
+            num_cols=self.num_cols,
+            vertical_spacing=self.vertical_spacing,
+            horizontal_spacing=self.horizontal_spacing,
+            pattern=self.pattern,
+            polarization=self.polarization,
+        )
+
+
+# ------------------------
 
 
 @dataclass(kw_only=True)

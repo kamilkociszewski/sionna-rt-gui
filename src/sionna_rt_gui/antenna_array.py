@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import polyscope.imgui as psim
 from sionna import rt
 from sionna.rt.antenna_pattern import (
@@ -9,41 +7,8 @@ from sionna.rt.antenna_pattern import (
     polarization_registry,
 )
 
+from .config import AntennaArrayConfig
 from .sionna_utils import add_paths_to_polyscope
-
-
-@dataclass(kw_only=True)
-class AntennaArrayConfig:
-    """
-    Class holding configuration parameters for an antenna array.
-    This is needed because once created, antenna array objects don't
-    expose those fields.
-    """
-
-    num_rows: int = 1
-    num_cols: int = 1
-    vertical_spacing: float = 0.5
-    horizontal_spacing: float = 0.5
-    pattern_i: int = antenna_pattern_registry.list().index("iso")
-    polarization_i: int = polarization_registry.list().index("cross")
-
-    @property
-    def pattern(self) -> str:
-        return antenna_pattern_registry.list()[self.pattern_i]
-
-    @property
-    def polarization(self) -> str:
-        return polarization_registry.list()[self.polarization_i]
-
-    def create(self) -> rt.AntennaArray:
-        return rt.PlanarArray(
-            num_rows=self.num_rows,
-            num_cols=self.num_cols,
-            vertical_spacing=self.vertical_spacing,
-            horizontal_spacing=self.horizontal_spacing,
-            pattern=self.pattern,
-            polarization=self.polarization,
-        )
 
 
 def _antenna_array_gui(
@@ -84,10 +49,10 @@ def _antenna_array_gui(
 
 def antenna_array_gui(gui: "SionnaRtGui"):
     gui.scene._tx_array, tx_changed = _antenna_array_gui(
-        "TX array", gui.tx_array_config, gui.scene._tx_array
+        "TX array", gui.cfg.tx_array, gui.scene._tx_array
     )
     gui.scene._rx_array, rx_changed = _antenna_array_gui(
-        "RX array", gui.rx_array_config, gui.scene._rx_array
+        "RX array", gui.cfg.rx_array, gui.scene._rx_array
     )
 
     if tx_changed:
