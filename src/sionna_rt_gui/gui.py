@@ -111,7 +111,8 @@ class SionnaRtGui:
         ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
         ps.set_background_color(self.cfg.background_color)
         ps.set_ground_plane_mode("none")
-        ps.set_window_resizable(True)
+        # TODO: support window resizing.
+        ps.set_window_resizable(False)
         ps.set_window_size(*self.cfg.rendering.default_resolution)
         ps.set_give_focus_on_show(True)
         ps.set_transparency_mode("pretty")
