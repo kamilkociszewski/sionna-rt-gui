@@ -65,6 +65,7 @@ class SionnaRtGui:
         # --- Selections
         self.selected_object: rt.SceneObject | None = None
         self.selected_type: SelectionType | None = None
+        self.prev_gizmo_to_world: np.ndarray | None = None
 
         # --- Polyscope setup
         # Can be used to derive e.g. random seeds.
@@ -365,7 +366,11 @@ class SionnaRtGui:
             specular_reflection=self.cfg.radio_map.specular_reflection,
             diffuse_reflection=self.cfg.radio_map.diffuse_reflection,
             refraction=self.cfg.radio_map.refraction,
+            diffraction=self.cfg.radio_map.diffraction,
+            edge_diffraction=self.cfg.radio_map.edge_diffraction,
+            diffraction_lit_region=self.cfg.radio_map.diffraction_lit_region,
         )
+
 
     # ------------------------
 
@@ -384,6 +389,9 @@ class SionnaRtGui:
             specular_reflection=self.cfg.paths.specular_reflection,
             diffuse_reflection=self.cfg.paths.diffuse_reflection,
             refraction=self.cfg.paths.refraction,
+            diffraction=self.cfg.paths.diffraction,
+            edge_diffraction=self.cfg.paths.edge_diffraction,
+            diffraction_lit_region=self.cfg.paths.diffraction_lit_region,
             seed=self.frame_i,
         )
 
@@ -674,32 +682,8 @@ class SionnaRtGui:
             )
             needs_update |= changed
 
-            # TODO: why is the width ignored?
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.radio_map.los = psim.Checkbox(
-                "Line of sight##rm", self.cfg.radio_map.los
-            )
-            needs_update |= changed
-
-            psim.SameLine()
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.radio_map.specular_reflection = psim.Checkbox(
-                "Specular reflection##rm", self.cfg.radio_map.specular_reflection
-            )
-            needs_update |= changed
-
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.radio_map.diffuse_reflection = psim.Checkbox(
-                "Diffuse reflection##rm", self.cfg.radio_map.diffuse_reflection
-            )
-            needs_update |= changed
-
-            psim.SameLine()
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.radio_map.refraction = psim.Checkbox(
-                "Refraction##rm", self.cfg.radio_map.refraction
-            )
-            needs_update |= changed
+            # -- Checkboxes table
+            needs_update |= self._gui_features_checkboxes(self.cfg.radio_map, "##rm")
 
             # -- Radio map display options
             if self.radio_map is not None:
@@ -794,32 +778,7 @@ class SionnaRtGui:
             )
             needs_update |= changed
 
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.paths.los = psim.Checkbox(
-                "Line of sight##paths", self.cfg.paths.los
-            )
-            needs_update |= changed
-
-            # TODO: why is the width ignored?
-            psim.SameLine()
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.paths.specular_reflection = psim.Checkbox(
-                "Specular reflection##paths", self.cfg.paths.specular_reflection
-            )
-            needs_update |= changed
-
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.paths.diffuse_reflection = psim.Checkbox(
-                "Diffuse reflection##paths", self.cfg.paths.diffuse_reflection
-            )
-            needs_update |= changed
-
-            psim.SameLine()
-            psim.SetNextItemWidth(200)
-            changed, self.cfg.paths.refraction = psim.Checkbox(
-                "Refraction##paths", self.cfg.paths.refraction
-            )
-            needs_update |= changed
+            needs_update |= self._gui_features_checkboxes(self.cfg.paths, "##paths")
 
             # TODO: rendering parameters (radius, transparency, etc)
             # TODO: show & configure segment color per type of interaction
@@ -872,7 +831,53 @@ class SionnaRtGui:
 
             psim.Spacing()
 
-        if self.selected_object is not None:
-            selection_gui(self, self.selected_object, self.selected_type)
+        psim.End()  # End main Sionna RT window
+
+    def _gui_features_checkboxes(
+        self, cfg: RadioMapConfig | PathsConfig, suffix: str
+    ) -> bool:
+        any_changed = False
+
+        psim.Columns(2, border=False)
+        psim.SetColumnWidth(0, 165)
+
+        changed, cfg.los = psim.Checkbox("Line of sight" + suffix, cfg.los)
+        any_changed |= changed
+
+        changed, cfg.diffuse_reflection = psim.Checkbox(
+            "Diffuse reflection" + suffix, cfg.diffuse_reflection
+        )
+        any_changed |= changed
+
+        changed, cfg.diffraction = psim.Checkbox(
+            "Diffraction" + suffix, cfg.diffraction
+        )
+        any_changed |= changed
+
+        psim.NextColumn()
+
+        changed, cfg.specular_reflection = psim.Checkbox(
+            "Specular reflection" + suffix, cfg.specular_reflection
+        )
+        any_changed |= changed
+
+        changed, cfg.refraction = psim.Checkbox("Refraction" + suffix, cfg.refraction)
+        any_changed |= changed
+
+        if cfg.diffraction:
+            changed, cfg.edge_diffraction = psim.Checkbox(
+                "Edge" + suffix, cfg.edge_diffraction
+            )
+            any_changed |= changed
+
+            psim.SameLine()
+            changed, cfg.diffraction_lit_region = psim.Checkbox(
+                "Lit region" + suffix, cfg.diffraction_lit_region
+            )
+            any_changed |= changed
+
+        psim.Columns(1)
+
+        return any_changed
 
         psim.End()

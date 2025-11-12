@@ -71,6 +71,9 @@ class RadioMapConfig:
     specular_reflection: bool = True
     diffuse_reflection: bool = True
     refraction: bool = True
+    diffraction: bool = False
+    edge_diffraction: bool = False
+    diffraction_lit_region: bool = True
     # seed: int = 42
     # rr_depth: int = -1
     # rr_prob: float = 0.95
@@ -98,7 +101,11 @@ class PathsConfig:
     los: bool = True
     specular_reflection: bool = True
     diffuse_reflection: bool = False
-    refraction: bool = True
+    refraction: bool = False
+    diffraction: bool = False
+    edge_diffraction: bool = False
+    diffraction_lit_region: bool = False
+
 
 
 class RenderingMode(Enum):
