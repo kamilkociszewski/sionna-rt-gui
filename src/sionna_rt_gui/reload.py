@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+import gc
 import importlib
 import importlib.util
 import io
@@ -11,6 +11,7 @@ import sys
 import time
 import traceback
 from types import ModuleType
+from typing import Any
 
 import polyscope as ps
 
@@ -132,6 +133,7 @@ class AppHolder:
                         file=sys.stderr,
                     )
                     print(traceback.format_exc(), file=sys.stderr)
+                gc.collect()
 
     def tick(self) -> None:
         self.maybe_reload()
