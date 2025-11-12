@@ -181,6 +181,7 @@ def add_radio_map_to_polyscope(
                 param_name="uv",
                 enabled=True,
                 image_origin="lower_left",
+                filter_mode="nearest",
             )
 
             if use_alpha:
