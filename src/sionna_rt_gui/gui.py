@@ -97,6 +97,13 @@ class SionnaRtGui:
 
         # Paths results
         self.paths: rt.Paths | None = None
+        # Shape: [num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_steps, l_max - l_min + 1]
+        self.paths_taps: np.ndarray | None = None
+        self.paths_cir: tuple[np.ndarray, np.ndarray] | None = None
+        self.paths_changed_timestamp: float | None = None
+        self._last_paths_update_time: float = (
+            0.0  # For throttling expensive path computations
+        )
 
         # --- Rendering
         self.render_cache: dict = None
@@ -680,6 +687,9 @@ class SionnaRtGui:
 
     def clear_paths(self):
         self.paths = None
+        self.paths_taps = None
+        self.paths_cir = None
+        self.paths_changed_timestamp = None
         if ps.has_curve_network("paths"):
             ps.get_curve_network("paths").remove()
 

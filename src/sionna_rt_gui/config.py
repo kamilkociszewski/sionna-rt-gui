@@ -119,6 +119,24 @@ class PathsConfig:
     edge_diffraction: bool = False
     diffraction_lit_region: bool = False
 
+    # CIR
+    num_taps: int = 10
+    fft_size: int = 512
+    subcarrier_spacing: float = 30e3
+    l_min: int = 0
+    l_max: int = 100
+    num_time_steps: int = 1
+    normalize: bool = False
+    normalize_delays: bool = True
+    snr_offset_db: float = -50
+
+    @property
+    def bandwidth(self) -> float:
+        return self.fft_size * self.subcarrier_spacing
+
+    @property
+    def sampling_frequency(self) -> float:
+        return 1.0 / self.bandwidth
 
 # ------------------------
 
