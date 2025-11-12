@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import polyscope as ps
 import polyscope.imgui as psim
 from sionna import rt
+from sionna.rt.scene_utils import remove_objects_duplicate_vertices
 
 from .animation import AnimationConfig, animation_gui, animation_tick
 from .antenna_array import antenna_array_gui
@@ -198,6 +199,7 @@ class SionnaRtGui:
     def load_scene(self, scene_path: str, recenter_camera: bool = True):
         self.reset_and_setup_structures()
         self.scene = rt.load_scene(scene_path)
+        remove_objects_duplicate_vertices(self.scene.mi_scene)
 
         self.scene.tx_array = self.cfg.tx_array.create()
         self.scene.rx_array = self.cfg.rx_array.create()
