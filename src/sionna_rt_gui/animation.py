@@ -10,8 +10,9 @@ import drjit as dr
 import polyscope as ps
 from polyscope import imgui as psim
 from sionna import rt
+from sionna.rt.utils.render import scene_scale
 
-from .sionna_utils import set_or_update_radio_devices_polyscope, add_paths_to_polyscope
+from .sionna_utils import set_or_update_radio_devices_polyscope
 
 
 class LoopingMode(Enum):
@@ -56,7 +57,7 @@ class Trajectory:
         if n_points == 0:
             return None
         if n_points == 1:
-            return self.points[0]
+            return self.points[0], np.zeros(3)
 
         safe_dist = np.clip(self.distance, 0.0, self.total_distance())
         end_idx = np.searchsorted(self._cumulative_distances, safe_dist, side="left")
@@ -73,7 +74,10 @@ class Trajectory:
         pos = self.points[start_idx] + t * direction
         return pos, direction / np.linalg.norm(direction)
 
-    def add_point(self, point: np.ndarray):
+    def add_point(self, point: np.ndarray | list[float]):
+        point = np.array(point)
+        assert point.size == 3, "Point must be a 3D vector"
+
         if len(self.points) == 0:
             self.points = point.squeeze()[None, :]
             self._cumulative_distances = [0.0]
@@ -104,7 +108,7 @@ class Trajectory:
 @dataclass(kw_only=True)
 class AnimationConfig:
     playing: bool = True
-    speed_multiplier: float = 5.0
+    speed_multiplier: float = 1.0
 
     # Time at which the animation started playing the first time (Unix timestamp)
     time_started: float | None = None
@@ -112,6 +116,10 @@ class AnimationConfig:
     trajectories: dict[str, Trajectory] = field(
         default_factory=lambda: defaultdict(Trajectory)
     )
+
+    def clear(self):
+        self.trajectories.clear()
+        self.time_started = None
 
 
 def animation_gui(gui: "SionnaRtGui"):
@@ -150,6 +158,9 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
     # TODO: movement gizmo for the trajectory points
 
     if psim.Button("Add current position"):
+        # Prevent the trajectory from playing while we are editing,
+        # otherwise the point will keep snapping back.
+        traj.enabled = False
         traj.add_point(object.position.numpy())
 
     psim.SameLine()
@@ -179,29 +190,30 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
 
     if has_points:
         # Draw a preview of the trajectory
-        _ = ps.register_curve_network(
+        display_radius = max(0.0003 * scene_scale(gui.scene), 0.3)
+        struct = ps.register_curve_network(
             "Trajectory",
             traj.points,
             edges="line",
-            enabled=True,
+            enabled=False,
             color=(0.15, 0.15, 0.15),
-            radius=0.001,
             transparency=0.7,
         )
+        struct.set_radius(display_radius, relative=False)
 
 
-def animation_tick(gui: "SionnaRtGui", time_delta: float):
+def animation_tick(gui: "SionnaRtGui", time_delta: float, force: bool = False):
     """
     Tick the animation.
     """
     cfg = gui.animation_config
-    if not cfg.playing:
+    if not cfg.playing and not force:
         return
 
     tx_changed = False
     rx_changed = False
     for obj_name, traj in gui.animation_config.trajectories.items():
-        if not traj.enabled:
+        if not traj.enabled and not force:
             continue
         if len(traj) == 0:
             continue

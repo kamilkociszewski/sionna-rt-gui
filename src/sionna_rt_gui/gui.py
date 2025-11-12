@@ -182,6 +182,7 @@ class SionnaRtGui:
         self.clear_selection()
         self.clear_paths()
         self.clear_ray_traced_image()
+        self.animation_config.clear()
 
         # Clear Polyscope state
         ps.remove_all_structures()
