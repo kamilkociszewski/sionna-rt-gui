@@ -535,10 +535,12 @@ class SionnaRtGui:
         if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
             self.set_radio_map(self.compute_radio_map(), show=True)
         if allow_auto_update and self.cfg.paths.auto_update:
-            self.paths = self.compute_paths()
-            add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
-    def remove_object(self, object: rt.SceneObject, selected_type: SelectionType):
+        return new_rd
+
+    def remove_object(
+        self, object: rt.SceneObject, selected_type: SelectionType
+    ) -> None:
         match selected_type:
             case SelectionType.Transmitter:
                 del self.scene._transmitters[object.name]
@@ -551,7 +553,7 @@ class SionnaRtGui:
         if object.name in self.animation_config.trajectories:
             del self.animation_config.trajectories[object.name]
 
-    def clear_radio_devices(self):
+    def clear_radio_devices(self) -> None:
         for name in self.scene._transmitters.keys():
             if name in self.animation_config.trajectories:
                 del self.animation_config.trajectories[name]
