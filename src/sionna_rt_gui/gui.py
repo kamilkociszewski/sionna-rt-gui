@@ -464,6 +464,16 @@ class SionnaRtGui:
             diffraction_lit_region=self.cfg.radio_map.diffraction_lit_region,
         )
 
+    def has_visible_radio_map(self) -> tuple[bool, ps.SurfaceMesh]:
+        rm_struct = None
+        if ps.has_surface_mesh("radio_map"):
+            rm_struct = ps.get_surface_mesh("radio_map")
+            rm_visible = rm_struct.is_enabled()
+        else:
+            rm_visible = False
+
+        return rm_visible, rm_struct
+
     # ------------------------
 
     def compute_paths(self) -> rt.Paths | None:
@@ -646,6 +656,23 @@ class SionnaRtGui:
             self.set_rendering_mode(
                 RenderingMode((self.cfg.rendering.mode.value + 1) % len(RenderingMode))
             )
+
+        # M: toggle radio map computation and display
+        if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("M")), repeat=False):
+            rm_visible, rm_struct = self.has_visible_radio_map()
+
+            if rm_visible:
+                # Hide radio map (but don't delete it, we may want to show it later)
+                self.cfg.radio_map.auto_update = False
+                rm_struct.set_enabled(False)
+            else:
+                self.cfg.radio_map.auto_update = True
+                if self.radio_map is not None:
+                    # Show the existing radio map
+                    rm_struct.set_enabled(True)
+                else:
+                    # Compute and show the radio map
+                    self.set_radio_map(self.compute_radio_map(), show=True)
 
         # Tab: toggle show GUI (ours)
         if not has_active_item and psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
