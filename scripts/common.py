@@ -1,5 +1,10 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
 import os
 import sys
+
 
 def add_project_root_to_path():
     lib_path = os.path.join(os.path.dirname(__file__), "..", "src")
