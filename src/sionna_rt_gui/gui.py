@@ -143,6 +143,7 @@ class SionnaRtGui:
         self.frame_i: int = 0
         self.was_mouse_dragging: bool = False
         self.home_camera_to_world: np.ndarray | None = None
+
         # Pre-init settings
         ps.set_program_name(self.cfg.title)
         # Window size and position will be loaded from the last run from `.polyscope.ini`
@@ -159,7 +160,6 @@ class SionnaRtGui:
         ps.set_ground_plane_mode("none")
         # TODO: support window resizing.
         ps.set_window_resizable(False)
-        ps.set_window_size(*self.cfg.rendering.default_resolution)
         ps.set_give_focus_on_show(True)
         ps.set_transparency_mode("pretty")
 
@@ -170,6 +170,14 @@ class SionnaRtGui:
             ps.init()
             if supports_direct_update_from_device():
                 set_polyscope_device_interop_funcs()
+
+        # Set window size once UI scale is known (after init).
+        self.ui_scale: float = ps.get_ui_scale()
+        print(f"{self.ui_scale=}")
+        ps.set_window_size(
+            self.cfg.rendering.default_resolution[0] * self.ui_scale,
+            self.cfg.rendering.default_resolution[1] * self.ui_scale,
+        )
 
         # Polyscope structures & groups
         self.reset_and_setup_structures()
@@ -858,8 +866,10 @@ class SionnaRtGui:
         ):
             window_resolution = ps.get_window_size()
             h, w = self.rm_colorbar.shape[:2]
-            psim.SetNextWindowSize((w, h))
-            psim.SetNextWindowPos((0.5 * (window_resolution[0] - w), 5))
+            psim.SetNextWindowSize((w * self.ui_scale, h * self.ui_scale))
+            psim.SetNextWindowPos(
+                (0.5 * (window_resolution[0] - w * self.ui_scale), 5 * self.ui_scale)
+            )
             psim.Begin(
                 "Colorbar",
                 open=True,
@@ -878,8 +888,12 @@ class SionnaRtGui:
             psim.End()
 
         # --- Main GUI window
-        psim.SetNextWindowSize((430, 800), psim.ImGuiCond_FirstUseEver)
-        psim.SetNextWindowPos((10, 10), psim.ImGuiCond_FirstUseEver)
+        psim.SetNextWindowSize(
+            (430 * self.ui_scale, 800 * self.ui_scale), psim.ImGuiCond_FirstUseEver
+        )
+        psim.SetNextWindowPos(
+            (10 * self.ui_scale, 10 * self.ui_scale), psim.ImGuiCond_FirstUseEver
+        )
         psim.Begin("Sionna RT##sionna", open=True)
 
         psim.Text(f"Frame time: {1000 * psim.GetIO().DeltaTime:.2f} ms")
@@ -887,9 +901,10 @@ class SionnaRtGui:
         psim.SameLine()
         bw = 20
         psim.SetCursorPosX(
-            psim.GetCursorPosX() + psim.GetContentRegionAvail()[0] - bw - 0
+            (psim.GetCursorPosX() + psim.GetContentRegionAvail()[0] - bw)
+            * self.ui_scale
         )
-        if psim.Button("?", size=(bw, 0)):
+        if psim.Button("?", size=(bw * self.ui_scale, 0)):
             self.cfg.show_help_window = not self.cfg.show_help_window
 
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
@@ -1068,7 +1083,7 @@ class SionnaRtGui:
             # max_num_paths_per_src
             # samples_per_src
 
-            psim.SetNextItemWidth(200)
+            psim.SetNextItemWidth(200 * self.ui_scale)
             changed, self.cfg.paths.synthetic_array = psim.Checkbox(
                 "Synthetic array##paths", self.cfg.paths.synthetic_array
             )
@@ -1144,7 +1159,7 @@ class SionnaRtGui:
         any_changed = False
 
         psim.Columns(2, border=False)
-        psim.SetColumnWidth(0, 165)
+        psim.SetColumnWidth(0, 165 * self.ui_scale)
 
         changed, cfg.los = psim.Checkbox("Line of sight" + suffix, cfg.los)
         any_changed |= changed
@@ -1188,9 +1203,14 @@ class SionnaRtGui:
     def gui_help_window(self):
         window_resolution = ps.get_window_size()
         w, h = 600, 600
-        psim.SetNextWindowSize((w, h), psim.ImGuiCond_FirstUseEver)
+        psim.SetNextWindowSize(
+            (w * self.ui_scale, h * self.ui_scale), psim.ImGuiCond_FirstUseEver
+        )
         psim.SetNextWindowPos(
-            (0.5 * (window_resolution[0] - w), 0.5 * (window_resolution[1] - h)),
+            (
+                0.5 * (window_resolution[0] - w * self.ui_scale),
+                0.5 * (window_resolution[1] - h * self.ui_scale),
+            ),
             psim.ImGuiCond_FirstUseEver,
         )
 
@@ -1215,12 +1235,12 @@ class SionnaRtGui:
                 + psim.GetColumnWidth(0) * 0.5
                 - psim.CalcTextSize(title)[0]
             )
-            psim.SetCursorPosX(text_pos)
+            psim.SetCursorPosX(text_pos * self.ui_scale)
             psim.Text(title)
 
             psim.Separator()
             psim.Columns(2)
-            psim.SetColumnWidth(0, 220)
+            psim.SetColumnWidth(0, 220 * self.ui_scale)
             psim.Text(os.linesep.join(table.keys()))
             psim.NextColumn()
             psim.Text(os.linesep.join(table.values()))
