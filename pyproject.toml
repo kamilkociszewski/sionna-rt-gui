@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [
-    {name = "Merlin Nimier-David", email = "mnimierdavid@nvidia.com"}
+    {name = "Merlin Nimier-David", email = "sionna@nvidia.com"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
