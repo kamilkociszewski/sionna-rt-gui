@@ -42,7 +42,7 @@ dev = [
 sionna-rt-gui = "scripts.run:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
 
 [tool.setuptools.package-data]
 sionna_rt_gui = ["configs/**/*.yaml", "data/**/*"]
