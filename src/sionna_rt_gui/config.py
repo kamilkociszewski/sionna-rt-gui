@@ -21,6 +21,13 @@ from . import DATA_DIR
 
 # ------------------------
 
+NVIDIA_GREEN = (0.4627, 0.7255, 0.0, 1.0)
+NVIDIA_GREEN_DARK = tuple(0.95 * c for c in NVIDIA_GREEN)
+NVIDIA_GREEN_DARKER = tuple(0.9 * c for c in NVIDIA_GREEN)
+
+
+# ------------------------
+
 
 @dataclass(kw_only=True)
 class AntennaArrayConfig:

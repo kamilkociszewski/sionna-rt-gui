@@ -24,6 +24,7 @@ from .config import (
     GuiMode,
     RenderingMode,
     RENDERING_MODE_NAMES,
+    NVIDIA_GREEN,
 )
 from .rendering import render_scene
 from .rm_utils import radio_map_colorbar_to_image
@@ -1012,6 +1013,8 @@ class SionnaRtGui:
                 psim.Spacing()
 
                 psim.Text("Accumulating samples:")
+
+                psim.PushStyleColor(psim.ImGuiCol_PlotHistogram, NVIDIA_GREEN)
                 psim.ProgressBar(
                     min(
                         self.rm_accumulated_samples
@@ -1019,6 +1022,7 @@ class SionnaRtGui:
                         1.0,
                     ),
                 )
+                psim.PopStyleColor()
 
                 struct = ps.get_surface_mesh("radio_map")
                 changed, show_rm = psim.Checkbox("Show radio map", struct.is_enabled())
