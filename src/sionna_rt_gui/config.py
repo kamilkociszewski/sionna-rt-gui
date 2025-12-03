@@ -212,7 +212,12 @@ class GuiConfig:
     background_color: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     # Either the path to an XML scene file, or the name of a built-in scene.
-    scene_filename: str = "simple_street_canyon_with_cars"
+    scene_filename: str | None = None
+    # Name of the built-in scene to load if no scene filename is provided.
+    default_scene_filename: str = "simple_street_canyon_with_cars"
+    # Whether to create an example scenario with radio devices. Will auto-enable
+    # if we're loading the default scene.
+    create_example_scenario: bool = False
 
     # Logging
     log_level: int = logging.INFO
@@ -229,6 +234,12 @@ class GuiConfig:
 
     # Paths
     paths: PathsConfig = field(default_factory=PathsConfig)
+
+    def __post_init__(self):
+        if self.scene_filename is None:
+            self.scene_filename = self.default_scene_filename
+            # Only add example radio devices if we're loading the default scene.
+            self.create_example_scenario = True
 
 
 # ------------------------

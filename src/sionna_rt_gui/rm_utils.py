@@ -189,6 +189,7 @@ def radio_map_colorbar_to_image(
         )
         buff.seek(0)
         data = np.frombuffer(buff.getvalue(), dtype=np.uint8)
+    plt.close(fig)
 
     w, h = (tight_bbox.width + 0.2) * dpi, (tight_bbox.height + 0.2) * dpi
     data = data.reshape((int(h), int(w), 4)).copy()

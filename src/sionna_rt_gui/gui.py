@@ -173,7 +173,6 @@ class SionnaRtGui:
 
         # Set window size once UI scale is known (after init).
         self.ui_scale: float = ps.get_ui_scale()
-        print(f"{self.ui_scale=}")
         ps.set_window_size(
             self.cfg.rendering.default_resolution[0] * self.ui_scale,
             self.cfg.rendering.default_resolution[1] * self.ui_scale,
@@ -199,32 +198,50 @@ class SionnaRtGui:
             recenter_camera=not was_initialized,
         )
 
-        if True:
-            # --- Test data (for convenience)
-            # TODO: remove this
+        if self.cfg.create_example_scenario:
+            if not was_initialized:
+                ps.set_camera_view_matrix(
+                    np.array(
+                        [
+                            [
+                                2.0079615e-03,
+                                -9.9999154e-01,
+                                -3.9256822e-08,
+                                4.4776478e00,
+                            ],
+                            [7.8317523e-01, 1.5742097e-03, 6.2179816e-01, 1.1707677e01],
+                            [
+                                -6.2179959e-01,
+                                -1.2489425e-03,
+                                7.8317869e-01,
+                                -2.2836572e02,
+                            ],
+                            [0.0000000e00, 0.0000000e00, 0.0000000e00, 1.0000000e00],
+                        ]
+                    )
+                )
+
             # Add some example transmitters
             for pos in [
-                # [50, -10, 29 + 2.5],
-                # [13, 13, 51 + 2.5],
-                [40, -10, 30 + 2.5],
+                [-34.0, 13.0, 33.0],
             ]:
                 self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
 
-                # shifted = [pos[0] + 5, pos[1] + 15, pos[2] - 10]
-                # self.add_radio_device(
-                #     shifted, is_transmitter=False, allow_auto_update=False
-                # )
+                shifted = [pos[0] + 15, pos[1] - 14, pos[2] - 20]
+                self.add_radio_device(
+                    shifted, is_transmitter=False, allow_auto_update=False
+                )
 
-            if False:
-                p = self.scene.get("tx-0").position.numpy().squeeze()
-                traj = self.animation_config.trajectories["tx-0"]
-                traj.add_point(p - [30, 10, 0])
-                traj.add_point(p + [30, 10, 0])
-                traj.enabled = True
-                self.animation_config.playing = True
-            if False:
-                self.selected_object = self.scene.get("tx-0")
-                self.selected_type = SelectionType.Transmitter
+            # Example animation
+            p = self.scene.get("rx-0").position.numpy().squeeze()
+            traj = self.animation_config.trajectories["rx-0"]
+            traj.add_point(p - [0, 30, 0])
+            traj.add_point(p)
+            traj.add_point(p + [40, 0, 0])
+            traj.enabled = True
+            traj.distance = 0.0  # Start at the first point
+            self.animation_config.playing = True
+            self.animation_config.speed_multiplier = 10.0
 
             if self.cfg.radio_map.auto_update:
                 self.set_radio_map(self.compute_radio_map(), show=True)
