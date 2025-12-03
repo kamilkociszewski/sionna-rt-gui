@@ -48,13 +48,14 @@ class DrColormap:
             value = value.array
             is_under = value < 0.0
             is_over = value >= 1.0
-            is_valid = ~(is_under | is_over)
             quantitized = dr.select(
-                is_valid,
-                mi.UInt32(value * self.N),
-                dr.select(is_under, self.idx_under, self.idx_over),
+                is_under,
+                self.idx_under,
+                dr.select(is_over, self.idx_over, mi.UInt32(value * self.N)),
             )
-            colors = dr.gather(mi.Vector4f, self.lut, quantitized, active=is_valid)
+            # Note: indices of out-of-range values are mapped to valid indices, so we do want
+            # to gather even those entries.
+            colors = dr.gather(mi.Vector4f, self.lut, quantitized)
             return mi.TensorXf(
                 dr.ravel(colors),
                 shape=(*sh, 4),
