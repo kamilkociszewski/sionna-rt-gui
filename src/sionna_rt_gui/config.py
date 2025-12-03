@@ -212,6 +212,9 @@ class GuiConfig:
     title: str = "Sionna RT"
     config_path: str
 
+    # Logging
+    log_level: int = logging.INFO
+
     gui_mode: GuiMode = GuiMode.FULL
     show_polyscope_gui: bool = False
     show_help_window: bool = False
@@ -227,8 +230,10 @@ class GuiConfig:
     # if we're loading the default scene.
     create_example_scenario: bool = False
 
-    # Logging
-    log_level: int = logging.INFO
+    # If set, override the radio materials' thickness property
+    radio_material_thickness: float | None = None
+    # If set, override the radio materials' scattering coefficient property
+    radio_material_scattering_coefficient: float | None = None
 
     # Antenna arrays
     tx_array: AntennaArrayConfig = field(default_factory=AntennaArrayConfig)

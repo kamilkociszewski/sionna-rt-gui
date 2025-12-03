@@ -272,11 +272,14 @@ class SionnaRtGui:
         self.scene.tx_array = self.cfg.tx_array.create()
         self.scene.rx_array = self.cfg.rx_array.create()
 
-        # TODO: setup configurable radio material diffuse & thickness
+        thickness = self.cfg.radio_material_thickness
+        scattering_coefficient = self.cfg.radio_material_scattering_coefficient
         for sh in self.scene.mi_scene.shapes():
             if isinstance(sh.bsdf(), rt.RadioMaterialBase):
-                sh.bsdf().scattering_coefficient = 0.2
-                sh.bsdf().thickness = 10.0
+                if thickness is not None:
+                    sh.bsdf().thickness = thickness
+                if scattering_coefficient is not None:
+                    sh.bsdf().scattering_coefficient = scattering_coefficient
 
         self.cfg.scene_filename = scene_path
         try:
