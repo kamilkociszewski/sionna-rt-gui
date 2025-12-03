@@ -49,3 +49,7 @@ sionna_rt_gui = ["configs/**/*.yaml", "data/**/*"]
 
 [tool.pylint.messages_control]
 disable = ["W1203"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["test"]
