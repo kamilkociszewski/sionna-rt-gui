@@ -213,7 +213,6 @@ class GuiConfig:
 
     # Either the path to an XML scene file, or the name of a built-in scene.
     scene_filename: str = "simple_street_canyon_with_cars"
-    loaded_from_snapshot: bool = False
 
     # Logging
     log_level: int = logging.INFO

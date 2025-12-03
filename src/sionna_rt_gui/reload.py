@@ -80,14 +80,8 @@ class AppHolder:
 
         old_config_path: str = cfg.config_path
         new_config_path: str | None = None
-        is_snapshot: bool = cfg.loaded_from_snapshot
 
-        if snapshot_load_requested:
-            # --- Snapshot load requested by the user
-            new_config_path = self.app.cfg.scene_filename
-            is_snapshot = True
-
-        elif not is_snapshot and self.config_watcher.change_detected():
+        if self.config_watcher.change_detected():
             # --- Configuration change detected
             # Note: we don't want to reload snapshots that we just wrote to, e.g.:
             # 1. Load snapshot `base.unerf`
