@@ -105,10 +105,8 @@ class SionnaRtGui:
         # Shape: [num_rx, num_rx_ant, num_tx, num_tx_ant, num_time_steps, l_max - l_min + 1]
         self.paths_taps: np.ndarray | None = None
         self.paths_cir: tuple[np.ndarray, np.ndarray] | None = None
-        self.paths_changed_timestamp: float | None = None
-        self._last_paths_update_time: float = (
-            0.0  # For throttling expensive path computations
-        )
+        # Used to throttle path computations
+        self._last_paths_update_time: float = 0.0
 
         # --- Rendering
         self.render_cache: dict = None
@@ -557,11 +555,12 @@ class SionnaRtGui:
     # ------------------------
 
     def update_paths(self, clear_first: bool = False, show: bool = True):
-        # Throttle expensive path computations to reduce GPU load
+        # Optionally throttle path computations to reduce load
         current_time = time.time()
         time_since_last_update = current_time - self._last_paths_update_time
         if time_since_last_update < self.cfg.paths.min_update_delay_s:
-            return  # Skip this update
+            # Skip this update
+            return
 
         if clear_first:
             self.clear_paths()
@@ -575,24 +574,23 @@ class SionnaRtGui:
             add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
         # TODO: checkbox to disable this? (only if it's too slow)
-        self.paths_taps = self.paths.taps(
-            bandwidth=self.cfg.paths.bandwidth,
-            l_min=self.cfg.paths.l_min,
-            l_max=self.cfg.paths.l_max,
-            sampling_frequency=self.cfg.paths.sampling_frequency,
-            num_time_steps=self.cfg.paths.num_time_steps,
-            normalize=self.cfg.paths.normalize,
-            normalize_delays=self.cfg.paths.normalize_delays,
-            out_type="numpy",
-        )
-        self.paths_cir = self.paths.cir(normalize_delays=True, out_type="numpy")
+        if self.cfg.paths.compute_cir:
+            self.paths_taps = self.paths.taps(
+                bandwidth=self.cfg.paths.bandwidth,
+                l_min=self.cfg.paths.l_min,
+                l_max=self.cfg.paths.l_max,
+                sampling_frequency=self.cfg.paths.sampling_frequency,
+                num_time_steps=self.cfg.paths.num_time_steps,
+                normalize=self.cfg.paths.normalize,
+                normalize_delays=self.cfg.paths.normalize_delays,
+                out_type="numpy",
+            )
+            self.paths_cir = self.paths.cir(normalize_delays=True, out_type="numpy")
 
-        # If self.paths_cir[0] has no elements, replace self.paths_taps with zeros, first element = 1e-10
-        if np.sum(self.paths_cir[0]) == 0:
-            # Set the first element to 1e-10
-            self.paths_taps[0, 0, 0, 0, 0, 0] = 1e-10
-
-        self.paths_changed_timestamp = time.time()
+            # If self.paths_cir[0] has no elements, replace self.paths_taps with zeros, first element = 1e-10
+            if np.sum(self.paths_cir[0]) == 0:
+                # Set the first element to 1e-10
+                self.paths_taps[0, 0, 0, 0, 0, 0] = 1e-10
 
     def compute_paths(self) -> rt.Paths | None:
         if not self.scene._transmitters or not self.scene._receivers:
@@ -719,7 +717,6 @@ class SionnaRtGui:
         self.paths = None
         self.paths_taps = None
         self.paths_cir = None
-        self.paths_changed_timestamp = None
         if ps.has_curve_network("paths"):
             ps.get_curve_network("paths").remove()
 

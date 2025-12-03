@@ -64,7 +64,4 @@ def antenna_array_gui(gui: "SionnaRtGui"):
         gui.reset_radio_map()
 
     if (tx_changed or rx_changed) and gui.cfg.paths.auto_update:
-        # TODO: probably should move this to a little method
-        gui.clear_paths()
-        gui.paths = gui.compute_paths()
-        add_paths_to_polyscope(gui, gui.paths, gui.ps_groups)
+        gui.update_paths(clear_first=True, show=True)

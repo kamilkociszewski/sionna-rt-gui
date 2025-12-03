@@ -113,8 +113,9 @@ class RadioMapConfig:
 @dataclass(kw_only=True)
 class PathsConfig:
     auto_update: bool = True
-    # Minimum delay between path computations (expensive ray tracing)
-    # Set this higher (e.g., 0.1-1.0) to reduce GPU load when animations are playing
+
+    # Minimum delay between path computations, which involves ray tracing.
+    # Set this higher (e.g., 0.1-1.0) to reduce GPU load when animations are playing.
     min_update_delay_s: float = 0.0  # 0 = update every frame (default behavior)
     accumulate_max_samples_per_src: int = int(1e9)
 
@@ -131,6 +132,7 @@ class PathsConfig:
     diffraction_lit_region: bool = False
 
     # CIR
+    compute_cir: bool = False
     num_taps: int = 10
     fft_size: int = 512
     subcarrier_spacing: float = 30e3
