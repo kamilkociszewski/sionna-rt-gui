@@ -1,7 +1,7 @@
 Sionna RT GUI
 =============
 
-An interactive GUI to simulate and visualize [Sionna RT](https://github.com/NVlabs/sionna-rt) scenes, paths and radio maps.
+An interactive GUI to simulate and visualize [Sionna RT](https://github.com/NVlabs/sionna-rt) scenes, paths, and radio maps.
 
 ![Sionna RT GUI screenshot](data/preview.webp)
 
@@ -9,12 +9,9 @@ An interactive GUI to simulate and visualize [Sionna RT](https://github.com/NVla
 Getting started
 ---------------
 
-### Installing from PyPi
+### Installing from PyPI
 
 ```bash
-python3 -m venv ./.venv
-source ./.venv/bin/activate
-
 pip install sionna-rt-gui
 ```
 
@@ -24,7 +21,7 @@ Then, start the GUI with:
 sionna-rt-gui
 ```
 
-Select the scene from built-in scenes with the dropdown in the top-left corner, or by passing it as an argument:
+Select a scene from Sionna RT's built-in scenes using the dropdown in the top-left corner, or by passing it as a command-line argument:
 
 ```bash
 sionna-rt-gui path/to/scene.xml
@@ -47,20 +44,56 @@ Then, start the GUI with:
 python ./scripts/run.py
 ```
 
+GUI controls
+------------
+
+The left-hand window can be used to trigger and configure all simulation options for radio devices, radio maps, and paths.
+
+Press <kbd>?</kbd> or <kbd>H</kbd> to show a help window listing supported keyboard shortcuts.
+
+**Animations**: radio devices's positions can be animated over time. To do so,
+
+1. Select the radio device to animate.
+2. Use the transformation gizmo to place it in the scene.
+3. In the Selection window, click 'Add current position'
+4. Move the radio device to its next position and repeat until the trajectory is complete.
+
+The device will move along the path when animation playback is enabled under the Animation section of the main window.
+
 
 Command-line options
 --------------------
 
-Explain config files (YAML format), options in `config.py`. See [`example.yaml`](configs/sionna_rt_gui/example.yaml). Pass with `--config`.
+### Configuration files
 
-Auto-reload mode with `--watch`, useful for development.
+All available options and their defaults are defined in [`src/sionna_rt_gui/config.py`](src/sionna_rt_gui/config.py).
+
+Almost all parameters can be set using YAML configuration files, see e.g. [`configs/sionna_rt_gui/example.yaml`](configs/sionna_rt_gui/example.yaml). Pass a config file with the `--config` argument:
+
+```bash
+sionna-rt-gui --config path/to/config.yaml
+```
+
+### Live reload mode
+
+For development, use `--watch` to enable live code reloading:
+
+```bash
+python ./scripts/run.py --watch
+```
+
+This monitors source files and automatically reloads the GUI when changes are detected. You can also trigger a manual reload with `Shift + R`.
 
 
-GUI options
------------
 
-'?' or 'H' to show the help page with all shortcuts.
+Acknowledgements
+----------------
 
-Ctrl + left / right click to add a transmitter / receiver.
+This project uses the [Polyscope](https://polyscope.run) and [Dear ImGui](https://github.com/ocornut/imgui) libraries.
+Sionna RT scenes use map data from [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
-Select radio device, then move it. Can create an animation by adding a sequence of positions in the selection panel.
+
+License
+-------
+
+Copyright (c) 2025-2026 NVIDIA Corporation. Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
