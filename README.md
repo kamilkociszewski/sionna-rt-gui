@@ -9,6 +9,8 @@ An interactive GUI to simulate and visualize [Sionna RT](https://github.com/NVla
 Getting started
 ---------------
 
+This project requires Python 3.10 or later. Sionna RT will be installed automatically as part of the dependencies.
+
 ### Installing from PyPI
 
 ```bash
@@ -51,7 +53,7 @@ The left-hand window can be used to trigger and configure all simulation options
 
 Press <kbd>?</kbd> or <kbd>H</kbd> to show a help window listing supported keyboard shortcuts.
 
-**Animations**: radio devices's positions can be animated over time. To do so,
+**Animations**: the position of radio devices can be animated over time. To do so,
 
 1. Select the radio device to animate.
 2. Use the transformation gizmo to place it in the scene.
@@ -82,7 +84,7 @@ For development, use `--watch` to enable live code reloading:
 python ./scripts/run.py --watch
 ```
 
-This monitors source files and automatically reloads the GUI when changes are detected. You can also trigger a manual reload with `Shift + R`.
+This monitors source files and automatically reloads the GUI when changes are detected. You can also trigger a manual reload with <kbd>Shift</kbd> + <kbd>R</kbd>.
 
 
 
