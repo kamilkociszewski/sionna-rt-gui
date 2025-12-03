@@ -82,6 +82,7 @@ class SionnaRtGui:
         self.built_in_scene_names = ["None"] + list(built_in_scenes.keys())
         self.built_in_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
+        self.load_scene_requested: str | None = None
         self.scene: rt.Scene | None = None
 
         # Radio map results
@@ -176,9 +177,6 @@ class SionnaRtGui:
             self.cfg.rendering.default_resolution[0] * self.ui_scale,
             self.cfg.rendering.default_resolution[1] * self.ui_scale,
         )
-
-        # Polyscope structures & groups
-        self.reset_and_setup_structures()
 
         # TODO: add slice plane controls (Polyscope has built-in support)
         # TODO: add scene drag & drop support (load the dropped XML file)
@@ -339,6 +337,10 @@ class SionnaRtGui:
     # ------------------------
 
     def tick(self):
+        if self.load_scene_requested is not None:
+            self.load_scene(self.load_scene_requested)
+            self.load_scene_requested = None
+
         self.process_inputs()
 
         # --- Rendering
@@ -877,6 +879,7 @@ class SionnaRtGui:
             self.has_visible_radio_map()[0]
             and self.cfg.radio_map.show_colorbar
             and (self.rm_colorbar is not None)
+            and (self.rm_colorbar_texture_id is not None)
             and hasattr(psim, "Image")
         ):
             window_resolution = ps.get_window_size()
@@ -933,9 +936,7 @@ class SionnaRtGui:
                 self.built_in_scene_names,
             )
             if changed:
-                new_scene = self.built_in_scene_paths[combo_i]
-                if new_scene is not None:
-                    self.load_scene(new_scene)
+                self.load_scene_requested = self.built_in_scene_paths[combo_i]
 
             psim.Spacing()
 
