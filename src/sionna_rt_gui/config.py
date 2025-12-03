@@ -170,7 +170,6 @@ class RenderingConfig:
     # Full resolution of the window
     default_resolution: tuple[int, int] = (1920, 1080)
     # Relative resolution for ray traced rendering
-    # TODO: relative rendering resolution picker (10%, 25%, 50%, 100%)
     relative_resolution: float = 0.5
     spp_per_frame: int = 16
     max_accumulated_spp: int = 256

@@ -158,8 +158,7 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
     """
     traj = gui.animation_config.trajectories[object.name]
 
-    # TODO: add/remove/split trajectory points
-    # TODO: movement gizmo for the trajectory points
+    # TODO: edit/remove/split existing trajectory points
 
     if psim.Button("Add current position"):
         # Prevent the trajectory from playing while we are editing,

@@ -1140,6 +1140,21 @@ class SionnaRtGui:
             if (self.cfg.rendering.mode == RenderingMode.RAY_TRACING) and (
                 "cuda" in mi.variant()
             ):
+                changed, self.cfg.rendering.relative_resolution = psim.SliderFloat(
+                    "Rendering resolution",
+                    self.cfg.rendering.relative_resolution,
+                    v_min=0.1,
+                    v_max=1.0,
+                    format="%.2f",
+                )
+                self.cfg.rendering.relative_resolution = min(
+                    max(self.cfg.rendering.relative_resolution, 0.1), 1.0
+                )
+                if changed:
+                    self.clear_ray_traced_image()
+                    # Need to re-create the denoiser for the new resolution
+                    self.set_use_denoiser(self.cfg.rendering.use_denoiser)
+
                 changed, self.cfg.rendering.use_denoiser = psim.Checkbox(
                     "Use OptiX denoiser", self.cfg.rendering.use_denoiser
                 )
