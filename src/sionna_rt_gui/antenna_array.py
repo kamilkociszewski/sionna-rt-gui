@@ -12,7 +12,6 @@ from sionna.rt.antenna_pattern import (
 )
 
 from .config import AntennaArrayConfig
-from .sionna_utils import add_paths_to_polyscope
 
 
 def _antenna_array_gui(
