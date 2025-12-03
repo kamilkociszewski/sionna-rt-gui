@@ -1026,6 +1026,11 @@ class SionnaRtGui:
                 if changed:
                     struct.set_enabled(show_rm)
 
+                psim.SameLine()
+                _, self.cfg.radio_map.show_colorbar = psim.Checkbox(
+                    "Show color bar", self.cfg.radio_map.show_colorbar
+                )
+
                 changed_cmap, self.rm_color_map_index = psim.Combo(
                     "Colormap",
                     self.rm_color_map_index,
