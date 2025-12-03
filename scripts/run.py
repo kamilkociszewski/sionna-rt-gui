@@ -32,19 +32,24 @@ def main():
         default=DEFAULT_CONFIG_PATH,
         help="Path to the GUI configuration file to use.",
     )
+    parser.add_argument(
+        "scene",
+        type=str,
+        nargs="?",
+        default=None,
+        help="Path to the Sionna RT scene to load (.xml file or name of a built-in scene).",
+    )
     watch_group = parser.add_mutually_exclusive_group()
     watch_group.add_argument(
         "--watch", action="store_true", dest="watch", default=False
     )
     watch_group.add_argument("--no-watch", action="store_false", dest="watch")
-    # TODO: load a specific Sionna RT scene and / or config
     args = parser.parse_args()
 
     cfg_overrides = {
         "use_live_reload": args.watch,
     }
-    data_path = None
-    cfg = load_config(args.config, data_path=data_path)
+    cfg = load_config(args.config, scene_filename=args.scene)
 
     # Configure logging
     logging.basicConfig(
@@ -52,7 +57,7 @@ def main():
     )
 
     # --- Initialization
-    app = AppHolder(cfg, data_path=data_path, overrides=cfg_overrides)
+    app = AppHolder(cfg, scene_filename=args.scene, overrides=cfg_overrides)
 
     # --- Running loop
     app.show()

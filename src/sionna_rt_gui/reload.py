@@ -29,7 +29,7 @@ class AppHolder:
     """
 
     def __init__(
-        self, cfg, data_path: str | None, overrides: dict[str, Any] | None = None
+        self, cfg, scene_filename: str | None, overrides: dict[str, Any] | None = None
     ):
         import sionna_rt_gui
 
@@ -37,7 +37,7 @@ class AppHolder:
             module=sionna_rt_gui, module_path=sionna_rt_gui.SOURCE_DIR
         )
         self.config_watcher: FilesWatcher | None = None
-        self.data_path: str | None = data_path
+        self.scene_filename: str | None = scene_filename
         self.overrides: dict[str, Any] = overrides or {}
         self.app = None
 
@@ -108,7 +108,9 @@ class AppHolder:
             load_fn = self.module_watcher.get("config.load_config")
 
             try:
-                new_config = load_fn(new_config_path, data_path=self.data_path)
+                new_config = load_fn(
+                    new_config_path, scene_filename=self.scene_filename
+                )
             except Exception as e:
                 # We don't want to keep trying to load an invalid config
                 if self.app is not None:

@@ -252,7 +252,7 @@ class GuiConfig:
 # ------------------------
 
 
-def load_config(config_path: str, data_path: str | None) -> GuiConfig:
+def load_config(config_path: str, scene_filename: str | None = None) -> GuiConfig:
     try:
         from yaml import CLoader as Loader
     except ImportError:
@@ -268,5 +268,7 @@ def load_config(config_path: str, data_path: str | None) -> GuiConfig:
     # Resolve interpolations, if any.
     OmegaConf.resolve(loaded)
     loaded["config_path"] = config_path
+    if scene_filename is not None:
+        loaded["scene_filename"] = scene_filename
     merged = OmegaConf.merge(OmegaConf.structured(GuiConfig), loaded)
     return OmegaConf.to_object(merged)
