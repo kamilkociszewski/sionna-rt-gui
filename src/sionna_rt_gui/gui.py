@@ -26,7 +26,7 @@ from .config import (
     RENDERING_MODE_NAMES,
     NVIDIA_GREEN,
 )
-from .rendering import render_scene
+from .rendering import render_scene, set_envmap_rotation
 from .rm_utils import radio_map_colorbar_to_image
 from .ps_utils import (
     set_polyscope_device_interop_funcs,
@@ -1141,7 +1141,7 @@ class SionnaRtGui:
                 "cuda" in mi.variant()
             ):
                 changed, self.cfg.rendering.relative_resolution = psim.SliderFloat(
-                    "Rendering resolution",
+                    "Rel. resolution",
                     self.cfg.rendering.relative_resolution,
                     v_min=0.1,
                     v_max=1.0,
@@ -1154,6 +1154,22 @@ class SionnaRtGui:
                     self.clear_ray_traced_image()
                     # Need to re-create the denoiser for the new resolution
                     self.set_use_denoiser(self.cfg.rendering.use_denoiser)
+
+                changed, self.cfg.rendering.envmap_rotation_deg = psim.SliderFloat(
+                    "Lighting angle",
+                    self.cfg.rendering.envmap_rotation_deg,
+                    v_min=-180,
+                    v_max=180,
+                    format="%.0f",
+                )
+                self.cfg.rendering.envmap_rotation_deg = min(
+                    max(self.cfg.rendering.envmap_rotation_deg, -180), 180
+                )
+                if changed:
+                    set_envmap_rotation(
+                        self.render_cache, self.cfg.rendering.envmap_rotation_deg
+                    )
+                    self.reset_accumulation_requested = True
 
                 changed, self.cfg.rendering.use_denoiser = psim.Checkbox(
                     "Use OptiX denoiser", self.cfg.rendering.use_denoiser

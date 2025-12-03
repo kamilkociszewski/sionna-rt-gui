@@ -237,3 +237,20 @@ def render_scene(
     return _render_scene(
         cfg, seed, camera_changed, cache=cache, use_denoiser=use_denoiser
     )
+
+
+def set_envmap_rotation(
+    cache: dict[str, Any],
+    angle_deg: float,
+    axis: tuple[float, float, float] = (0, 0, 1),
+) -> bool:
+    if "visual_scene" not in cache:
+        return False
+
+    props = mi.traverse(cache["visual_scene"])
+    if "emitter.to_world" not in props:
+        return False
+
+    props["emitter.to_world"] = mi.ScalarTransform4f.rotate(axis=axis, angle=angle_deg)
+    props.update()
+    return True
