@@ -373,7 +373,6 @@ class SionnaRtGui:
                 if self.ray_traced_img is None:
                     self.ray_traced_img = new_img
                 else:
-                    # TODO: how should we correctly accumulate? Use spp so far?
                     t = self.cfg.rendering.spp_per_frame / (
                         self.rendering_accumulated_samples
                         + self.cfg.rendering.spp_per_frame
@@ -446,7 +445,6 @@ class SionnaRtGui:
         self.cfg.rendering.use_denoiser = use_denoiser
 
         # The integrator will be re-created, so we reset the rendering cache.
-        # TODO: could do this more surgically, no need to re-create the whole scene.
         self.render_cache = None
 
         if self.cfg.rendering.use_denoiser:
@@ -578,7 +576,6 @@ class SionnaRtGui:
         if show:
             add_paths_to_polyscope(self, self.paths, self.ps_groups)
 
-        # TODO: checkbox to disable this? (only if it's too slow)
         if self.cfg.paths.compute_cir:
             self.paths_taps = self.paths.taps(
                 bandwidth=self.cfg.paths.bandwidth,
@@ -743,6 +740,8 @@ class SionnaRtGui:
         has_active_item = psim.IsAnyItemActive()
 
         # TODO: +/- to zoom in/out
+        # TODO: keyboard shortcuts to move around (WASD + QE)
+        # TODO: keyboard shortcuts to rotate the envmap?
 
         # K/L or (Ctrl + left/right click): add transmitter/receiver
         has_k = psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("K")))
@@ -757,7 +756,7 @@ class SionnaRtGui:
             )
         ):
             is_transmitter = imgui_io.MouseClicked[0] or has_k
-            # TODO: configurable placement offset along the normal
+            # TODO: place at some distance along normal, not just a constant offset
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
             rd_position += (0, 0, 2.5)
             if np.all(np.isfinite(rd_position)):
@@ -772,9 +771,6 @@ class SionnaRtGui:
             or self.was_mouse_dragging
         ):
             self.process_pick_result(ps.pick(screen_coords=imgui_io.MousePos))
-
-        # TODO: keyboard shortcuts to move around (WASD + QE)
-        # TODO: keyboard shortcuts to rotate the envmap?
 
         # Shift + R: reload code
         if imgui_io.KeyShift and psim.IsKeyPressed(
@@ -837,7 +833,6 @@ class SionnaRtGui:
         self.was_mouse_dragging = has_mouse_drag
 
     def process_pick_result(self, pick_result: ps.PickResult) -> bool:
-        # TODO: how to ignore clicks that hit the GUI?
         if not pick_result.is_hit or "index" not in pick_result.structure_data:
             self.clear_selection()
             return False
@@ -1066,7 +1061,6 @@ class SionnaRtGui:
 
                 needs_visual_update = changed_cmap or changed_vmin or changed_vmax
 
-            # TODO: maybe this should be done automatically at the next tick
             if self.cfg.radio_map.auto_update and needs_update:
                 self.set_radio_map(self.compute_radio_map(), show=False)
             if needs_update or needs_visual_update:
@@ -1106,10 +1100,6 @@ class SionnaRtGui:
             )
             needs_update |= changed
 
-            # TODO:
-            # max_num_paths_per_src
-            # samples_per_src
-
             psim.SetNextItemWidth(200 * self.ui_scale)
             changed, self.cfg.paths.synthetic_array = psim.Checkbox(
                 "Synthetic array##paths", self.cfg.paths.synthetic_array
@@ -1135,7 +1125,6 @@ class SionnaRtGui:
 
         if psim.CollapsingHeader("Rendering"):
             psim.Spacing()
-            # TODO: option to show/hide radio device orientations
 
             changed, combo_i = psim.Combo(
                 "Rendering mode",

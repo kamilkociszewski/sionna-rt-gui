@@ -61,7 +61,7 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
         ps_mat = None
         if isinstance(mat, rt.RadioMaterialBase):
             color = mat.color
-            # TODO: use fancier materials
+            # TODO: use fancier materials for rasterization
             # if isinstance(mat, rt.ITURadioMaterial):
             #     ps_mat = ITU_TO_PS_MATERIAL.get(mat.itu_type)
         else:

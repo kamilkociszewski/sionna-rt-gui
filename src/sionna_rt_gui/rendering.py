@@ -148,7 +148,6 @@ def _render_scene(
         # Camera to world transform
         view_pose = ps.get_camera_view_matrix()
 
-        # TODO: maybe reuse `rt.utils.render.make_render_sensor()`
         ps_to_world = np.linalg.inv(view_pose)
         del view_pose
         view_rotation = np.eye(4)
@@ -161,8 +160,7 @@ def _render_scene(
         # - However, the local camera space needs to be converted from Polyscope's
         #   left-handed (+y up, -z forward, +x right) to Mitsuba's right-handed
         #   system (y up, -z forward, +x left).
-        # TODO: double-check the comment above for correctness.
-        # TODO: do this in a single go.
+        # TODO: do this in a single go for efficiency.
         to_world = (
             mi.ScalarTransform4f(view_translation)
             @ mi.ScalarTransform4f(
