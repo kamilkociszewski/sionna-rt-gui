@@ -62,7 +62,7 @@ class AntennaArrayConfig:
 @dataclass(kw_only=True)
 class RadioMapConfig:
     auto_update: bool = True
-    accumulate_max_samples_per_tx: int = int(1e9)
+    accumulate_max_samples_per_tx: int = int(1e10)
 
     # -- Computation
     center: tuple[float, float, float] | None = None
