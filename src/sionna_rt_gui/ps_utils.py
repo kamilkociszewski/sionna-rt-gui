@@ -75,3 +75,65 @@ def set_polyscope_device_interop_funcs():
 
 def supports_direct_update_from_device() -> bool:
     return "cuda" in mi.variant()
+
+
+def set_custom_imgui_style():
+    import polyscope.imgui as psim
+
+    def style_cb():
+        style = psim.GetStyle()
+        style.WindowRounding = 1
+        style.FrameRounding = 1
+        style.FramePadding = (style.FramePadding[0], 4)
+        style.ScrollbarRounding = 1
+        style.ScrollbarSize = 20
+        style.ScaleAllSizes(ps.get_ui_scale())
+
+        # # TODO: make a nice custom theme.
+        # colors = style.GetColors()
+        # colors[psim.ImGuiCol_Text] = (0.90, 0.90, 0.90, 1.00)
+        # colors[psim.ImGuiCol_TextDisabled] = (0.60, 0.60, 0.60, 1.00)
+        # colors[psim.ImGuiCol_WindowBg] = (0.00, 0.00, 0.00, 0.70)
+        # colors[psim.ImGuiCol_ChildBg] = (0.00, 0.00, 0.00, 0.00)
+        # colors[psim.ImGuiCol_PopupBg] = (0.11, 0.11, 0.14, 0.92)
+        # colors[psim.ImGuiCol_Border] = (0.50, 0.50, 0.50, 0.50)
+        # colors[psim.ImGuiCol_BorderShadow] = (0.00, 0.00, 0.00, 0.00)
+        # colors[psim.ImGuiCol_FrameBg] = (0.63, 0.63, 0.63, 0.39)
+        # colors[psim.ImGuiCol_FrameBgHovered] = (0.47, 0.69, 0.59, 0.40)
+        # colors[psim.ImGuiCol_FrameBgActive] = (0.41, 0.64, 0.53, 0.69)
+        # colors[psim.ImGuiCol_TitleBg] = (0.27, 0.54, 0.42, 0.83)
+        # colors[psim.ImGuiCol_TitleBgActive] = (0.32, 0.63, 0.49, 0.87)
+        # colors[psim.ImGuiCol_TitleBgCollapsed] = (0.27, 0.54, 0.42, 0.83)
+        # colors[psim.ImGuiCol_MenuBarBg] = (0.40, 0.55, 0.48, 0.80)
+        # colors[psim.ImGuiCol_ScrollbarBg] = (0.63, 0.63, 0.63, 0.39)
+        # colors[psim.ImGuiCol_ScrollbarGrab] = (0.00, 0.00, 0.00, 0.30)
+        # colors[psim.ImGuiCol_ScrollbarGrabHovered] = (0.40, 0.80, 0.62, 0.40)
+        # colors[psim.ImGuiCol_ScrollbarGrabActive] = (0.39, 0.80, 0.61, 0.60)
+        # colors[psim.ImGuiCol_CheckMark] = (0.90, 0.90, 0.90, 0.50)
+        # colors[psim.ImGuiCol_SliderGrab] = (1.00, 1.00, 1.00, 0.30)
+        # colors[psim.ImGuiCol_SliderGrabActive] = (0.39, 0.80, 0.61, 0.60)
+        # colors[psim.ImGuiCol_Button] = (0.35, 0.61, 0.49, 0.62)
+        # colors[psim.ImGuiCol_ButtonHovered] = (0.40, 0.71, 0.57, 0.79)
+        # colors[psim.ImGuiCol_ButtonActive] = (0.46, 0.80, 0.64, 1.00)
+        # colors[psim.ImGuiCol_Header] = (0.40, 0.90, 0.67, 0.45)
+        # colors[psim.ImGuiCol_HeaderHovered] = (0.45, 0.90, 0.69, 0.80)
+        # colors[psim.ImGuiCol_HeaderActive] = (0.53, 0.87, 0.71, 0.80)
+        # colors[psim.ImGuiCol_Separator] = (0.50, 0.50, 0.50, 1.00)
+        # colors[psim.ImGuiCol_SeparatorHovered] = (0.60, 0.70, 0.66, 1.00)
+        # colors[psim.ImGuiCol_SeparatorActive] = (0.70, 0.90, 0.81, 1.00)
+        # colors[psim.ImGuiCol_ResizeGrip] = (1.00, 1.00, 1.00, 0.16)
+        # colors[psim.ImGuiCol_ResizeGripHovered] = (0.78, 1.00, 0.90, 0.60)
+        # colors[psim.ImGuiCol_ResizeGripActive] = (0.78, 1.00, 0.90, 0.90)
+        # colors[psim.ImGuiCol_PlotLines] = (1.00, 1.00, 1.00, 1.00)
+        # colors[psim.ImGuiCol_PlotLinesHovered] = (0.90, 0.70, 0.00, 1.00)
+        # colors[psim.ImGuiCol_PlotHistogram] = (0.90, 0.70, 0.00, 1.00)
+        # colors[psim.ImGuiCol_PlotHistogramHovered] = (1.00, 0.60, 0.00, 1.00)
+        # colors[psim.ImGuiCol_TextSelectedBg] = (0.00, 0.00, 1.00, 0.35)
+        # colors[psim.ImGuiCol_ModalWindowDimBg] = (0.20, 0.20, 0.20, 0.35)
+        # colors[psim.ImGuiCol_DragDropTarget] = (1.00, 1.00, 0.00, 0.90)
+        # colors[psim.ImGuiCol_Tab] = (0.27, 0.54, 0.42, 0.83)
+        # colors[psim.ImGuiCol_TabHovered] = (0.34, 0.68, 0.53, 0.83)
+        # colors[psim.ImGuiCol_TabSelected] = (0.38, 0.76, 0.58, 0.83)
+        # style.SetColors(colors)
+
+    ps.set_configure_imgui_style_callback(style_cb)

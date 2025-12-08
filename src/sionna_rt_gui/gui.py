@@ -29,6 +29,7 @@ from .config import (
 from .rendering import render_scene, set_envmap_rotation
 from .rm_utils import radio_map_colorbar_to_image
 from .ps_utils import (
+    set_custom_imgui_style,
     set_polyscope_device_interop_funcs,
     supports_direct_update_from_device,
 )
@@ -162,6 +163,8 @@ class SionnaRtGui:
         ps.set_window_resizable(False)
         ps.set_give_focus_on_show(True)
         ps.set_transparency_mode("pretty")
+        ps.set_files_dropped_callback(self.on_files_dropped)
+        set_custom_imgui_style()
 
         was_initialized = ps.is_initialized()
         if not was_initialized:
@@ -293,6 +296,14 @@ class SionnaRtGui:
         self.set_rendering_mode(self.cfg.rendering.mode)
         if recenter_camera:
             self.fit_camera_to_scene()
+
+    def on_files_dropped(self, files: list[str]):
+        for file in files:
+            if file.endswith(".xml"):
+                print(f"[i] Loading dropped XML file: {file}")
+                self.load_scene(file)
+                # Only handle one valid XML file
+                break
 
     def move_camera_home(self):
         """Move camera to the home view, if any. Otherwise, fits the scene in the camera viewport."""
@@ -472,7 +483,7 @@ class SionnaRtGui:
 
         # TODO: more robust way to get this info from Polyscope
         if had_image:
-            # TODO: proper way to remove / disable the buffer in Polyscope.
+            # TODO: proper way to remove / disable the render quantity in Polyscope.
             ps.add_raw_color_alpha_render_image_quantity(
                 "ray_traced_img",
                 depth_values=np.empty((1, 1)),
