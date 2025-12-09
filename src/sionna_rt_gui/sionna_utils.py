@@ -355,3 +355,18 @@ def add_paths_to_polyscope(
     )
     struct.set_transparency(0.6)
     struct.add_to_group(ps_groups["paths"])
+
+
+def get_normal_for_path(
+    scene: rt.Scene,
+    origin: np.ndarray,
+    destination: np.ndarray,
+) -> np.ndarray | None:
+
+    ray = mi.Ray3f(origin, dr.normalize(destination - origin))
+
+    si = scene.mi_scene.ray_intersect(ray)
+    if si.is_valid().numpy().item():
+        return si.n.numpy().squeeze()
+
+    return None

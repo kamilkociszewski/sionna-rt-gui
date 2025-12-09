@@ -34,11 +34,12 @@ from .ps_utils import (
     supports_direct_update_from_device,
 )
 from .sionna_utils import (
+    add_paths_to_polyscope,
     add_radio_map_to_polyscope,
-    set_or_update_radio_devices_polyscope,
     add_scene_to_polyscope,
     get_built_in_scenes,
-    add_paths_to_polyscope,
+    get_normal_for_path,
+    set_or_update_radio_devices_polyscope,
 )
 from .selection import SelectionType, selection_gui
 
@@ -773,9 +774,19 @@ class SionnaRtGui:
             )
         ):
             is_transmitter = imgui_io.MouseClicked[0] or has_k
-            # TODO: place at some distance along normal, not just a constant offset
+
+            origin = ps.get_camera_view_matrix()[:3, 3]
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
-            rd_position += (0, 0, 2.5)
+
+            normal = get_normal_for_path(self.scene, origin, rd_position)
+            if normal is None:
+                normal = np.array([0, 0, 1])
+            # Make sure that normal is oriented towards the camera
+            if np.dot(normal, rd_position - origin) < 0:
+                normal = -normal
+
+            rd_position += 1.5 * normal
+
             if np.all(np.isfinite(rd_position)):
                 self.add_radio_device(rd_position, is_transmitter)
 
