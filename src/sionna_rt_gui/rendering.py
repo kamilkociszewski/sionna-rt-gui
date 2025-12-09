@@ -35,9 +35,8 @@ def setup_scene_for_rendering(
             "type": "perspective",
             "fov": fov_y_deg,
             "fov_axis": "y",
-            # TODO: adapt automatically based on scene size
-            "near_clip": 0.1,
-            "far_clip": 10000,
+            "near_clip": 1.0,
+            "far_clip": max(10000, 10 * rt.utils.render.scene_scale(scene)),
             "film": {
                 "type": "hdrfilm",
                 "pixel_format": "rgb",
