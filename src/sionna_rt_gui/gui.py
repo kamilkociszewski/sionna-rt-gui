@@ -1028,6 +1028,7 @@ class SionnaRtGui:
                         / self.cfg.radio_map.accumulate_max_samples_per_tx,
                         1.0,
                     ),
+                    (psim.CalcItemWidth(), 0),
                 )
                 psim.PopStyleColor()
 
