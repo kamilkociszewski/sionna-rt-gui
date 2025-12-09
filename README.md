@@ -91,7 +91,7 @@ This monitors source files and automatically reloads the GUI when changes are de
 Acknowledgements
 ----------------
 
-This project uses the [Polyscope](https://polyscope.run) and [Dear ImGui](https://github.com/ocornut/imgui) libraries.
+This project uses the [Polyscope](https://polyscope.run) and [Dear ImGui](https://github.com/ocornut/imgui) libraries with the [Bess Dark](https://github.com/shivang51/bess/blob/a74d78e78ee4678b03582181905e00c1094c3d18/src/Bess/src/settings/themes.cpp) theme.
 Sionna RT scenes use map data from [OpenStreetMap](https://www.openstreetmap.org/copyright).
 
 
