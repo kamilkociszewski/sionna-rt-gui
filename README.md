@@ -88,6 +88,15 @@ This monitors source files and automatically reloads the GUI when changes are de
 
 
 
+Limitations
+-----------
+
+The following features are not supported in the GUI at the moment:
+
+- Slice plane
+- Mesh-based radio maps
+
+
 Acknowledgements
 ----------------
 
