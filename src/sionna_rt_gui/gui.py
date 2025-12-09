@@ -80,8 +80,8 @@ class SionnaRtGui:
         # --- Sionna RT
         # Scene
         built_in_scenes = get_built_in_scenes()
-        self.built_in_scene_names = ["None"] + list(built_in_scenes.keys())
-        self.built_in_scene_paths = [None] + list(built_in_scenes.values())
+        self.known_scene_names = ["None"] + list(built_in_scenes.keys())
+        self.known_scene_paths = [None] + list(built_in_scenes.values())
         self.current_scene_idx: int = 0
         self.load_scene_requested: str | None = None
         self.scene: rt.Scene | None = None
@@ -285,12 +285,18 @@ class SionnaRtGui:
                     sh.bsdf().scattering_coefficient = scattering_coefficient
 
         self.cfg.scene_filename = scene_path
+
+        # Add this scene to the list of known scene names, if missing
+        if scene_path not in self.known_scene_paths:
+            self.known_scene_names.append(scene_path)
+            self.known_scene_paths.append(scene_path)
+
         try:
-            self.current_scene_idx = self.built_in_scene_paths.index(
+            self.current_scene_idx = self.known_scene_paths.index(
                 self.cfg.scene_filename
             )
         except ValueError:
-            pass
+            self.current_scene_idx = 0
 
         add_scene_to_polyscope(self.scene, self.ps_groups)
         self.set_rendering_mode(self.cfg.rendering.mode)
@@ -937,15 +943,15 @@ class SionnaRtGui:
         if psim.CollapsingHeader("Scene", psim.ImGuiTreeNodeFlags_DefaultOpen):
             psim.Spacing()
 
-            # Quick pick from built-in scenes
+            # Quick pick from built-in or recently-loaded scenes.
             psim.Text("Scene selection:")
             changed, combo_i = psim.Combo(
                 "##scene_picker",
                 self.current_scene_idx,
-                self.built_in_scene_names,
+                self.known_scene_names,
             )
             if changed:
-                self.load_scene_requested = self.built_in_scene_paths[combo_i]
+                self.load_scene_requested = self.known_scene_paths[combo_i]
 
             psim.Spacing()
 
