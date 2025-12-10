@@ -1201,6 +1201,25 @@ class SionnaRtGui:
             if (self.cfg.rendering.mode == RenderingMode.RAY_TRACING) and (
                 "cuda" in mi.variant()
             ):
+                _, self.cfg.rendering.spp_per_frame = psim.SliderInt(
+                    "SPP / frame",
+                    self.cfg.rendering.spp_per_frame,
+                    v_min=1,
+                    v_max=1024,
+                )
+                self.cfg.rendering.spp_per_frame = max(
+                    self.cfg.rendering.spp_per_frame, 1
+                )
+                _, self.cfg.rendering.max_accumulated_spp = psim.SliderInt(
+                    "SPP max",
+                    self.cfg.rendering.max_accumulated_spp,
+                    v_min=1,
+                    v_max=1024,
+                )
+                self.cfg.rendering.max_accumulated_spp = max(
+                    self.cfg.rendering.max_accumulated_spp, 1
+                )
+
                 changed, self.cfg.rendering.relative_resolution = psim.SliderFloat(
                     "Rel. resolution",
                     self.cfg.rendering.relative_resolution,
