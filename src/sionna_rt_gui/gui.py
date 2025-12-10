@@ -410,15 +410,18 @@ class SionnaRtGui:
                     cache=self.render_cache,
                     use_denoiser=self.denoiser is not None,
                 )
-                self.ray_traced_depth = aovs[0]
                 if self.ray_traced_img is None:
                     self.ray_traced_img = new_img
+                    self.ray_traced_depth = aovs[0]
                 else:
                     t = self.cfg.rendering.spp_per_frame / (
                         self.rendering_accumulated_samples
                         + self.cfg.rendering.spp_per_frame
                     )
                     self.ray_traced_img = (1 - t) * self.ray_traced_img + t * new_img
+                    self.ray_traced_depth = (1 - t) * self.ray_traced_depth + t * aovs[
+                        0
+                    ]
                 self.rendering_accumulated_samples += self.cfg.rendering.spp_per_frame
 
                 if self.denoiser is not None:

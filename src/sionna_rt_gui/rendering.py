@@ -78,21 +78,20 @@ def setup_scene_for_rendering(
         h, *_ = dr.shape(params[k])
         params[k][int(0.6 * h) :, :, :] = 0
 
-    integrator = mi.load_dict(
-        {
+    integrator = {
+        "type": "path",
+        "hide_emitters": True,
+        "max_depth": 5,
+    }
+    if use_denoiser:
+        integrator = {
             "type": "aov",
-            "aovs": (
-                "albedo:albedo,normals:sh_normal,dd.y:depth"
-                if use_denoiser
-                else "dd.y:depth"
-            ),
-            "integrator": {
-                "type": "path",
-                "hide_emitters": True,
-                "max_depth": 5,
-            },
+            "aovs": "albedo:albedo,normals:sh_normal",
+            "nested": integrator,
         }
-    )
+    integrator = mi.load_dict(integrator)
+
+    depth_integrator = mi.load_dict({"type": "depth"})
 
     # Helper to convert between radial and perpendicular-style depth buffers.
     # Camera parameters from the sensor
@@ -118,6 +117,7 @@ def setup_scene_for_rendering(
         "sensor": sensor,
         "visual_scene": visual_scene,
         "integrator": integrator,
+        "depth_integrator": depth_integrator,
         "render_op": _RenderOp(),
         "radial_factor": radial_factor,
     }
@@ -139,6 +139,7 @@ def _render_scene(
     sensor = cache["sensor"]
     visual_scene = cache["visual_scene"]
     integrator = cache["integrator"]
+    depth_integrator = cache["depth_integrator"]
     render_op = cache["render_op"]
     radial_factor = cache["radial_factor"]
 
@@ -198,11 +199,21 @@ def _render_scene(
     )
     rgb = img[..., :3]
 
+    # Depth: render separately because we really want 1spp. Otherwise, depth values
+    # get averaged with 0.f at the edge of objects, which is problematic for compositing.
+    perpendicular_depth = render_op.eval(
+        scene=visual_scene,
+        sensor=sensor,
+        _=None,
+        params=None,
+        integrator=depth_integrator,
+        seed=(seed, None),
+        spp=(1, None),
+    )
     # Polyscope: "Depth values should be radial ray distance from the camera origin,
     # not perpendicular distance from the image plane."
-    # Convert from perpendicular distance to radial ray distance (?)
-    perpendicular_depth = img[..., -1]
-    depth = perpendicular_depth / radial_factor
+    # Convert from perpendicular distance to radial ray distance
+    depth = perpendicular_depth[:, :, 0] / radial_factor
     depth = dr.select(depth == 0, dr.inf, depth)
 
     aovs = [depth]
