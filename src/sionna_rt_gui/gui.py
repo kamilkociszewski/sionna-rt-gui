@@ -862,16 +862,15 @@ class SionnaRtGui:
             origin = ps.get_camera_view_matrix()[:3, 3]
             rd_position = ps.screen_coords_to_world_position(imgui_io.MousePos)
 
-            normal = get_normal_for_path(self.scene, origin, rd_position)
-            if normal is None:
-                normal = np.array([0, 0, 1])
-            # Make sure that normal is oriented towards the camera
-            if np.dot(normal, rd_position - origin) < 0:
-                normal = -normal
-
-            rd_position += 1.5 * normal
-
             if np.all(np.isfinite(rd_position)):
+                normal = get_normal_for_path(self.scene, origin, rd_position)
+                if normal is None:
+                    normal = np.array([0, 0, 1])
+                # Make sure that normal is oriented towards the camera
+                if np.dot(normal, rd_position - origin) < 0:
+                    normal = -normal
+                rd_position += 1.5 * normal
+
                 self.add_radio_device(rd_position, is_transmitter)
 
         # Plain left click: object selection
