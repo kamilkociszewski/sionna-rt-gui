@@ -71,6 +71,10 @@ HELP_WINDOW_TABLES = {
         "Shift + R": "Reload application",
         "Ctrl + Q": "Exit",
     },
+    "Slice plane": {
+        "S": "Toggle slice plane visibility (not supported in ray-traced rendering mode)",
+        "Middle click drag": "Move slice plane along its normal",
+    },
 }
 
 
@@ -119,6 +123,7 @@ class SionnaRtGui:
         self.rendering_accumulated_samples: int = 0
         self.reset_accumulation_requested: bool = False
         self.denoiser: mi.OptixDenoiser | None = None
+        self.slice_plane: ps.SlicePlane | None = None
 
         # --- Animation state
         self.animation_config: AnimationConfig = AnimationConfig()
@@ -193,9 +198,7 @@ class SionnaRtGui:
         # Used to throttle window size change handling. Set to None if no change is pending.
         self.last_window_size_changed_time: float | None = None
 
-        # TODO: add slice plane controls (Polyscope has built-in support)
-
-        # Load scene
+        # --- Load scene
         # TODO: preserve currently-selected scene across reloads
         if not self.cfg.scene_filename.endswith(".xml"):
             if self.cfg.scene_filename not in built_in_scenes:
@@ -209,6 +212,24 @@ class SionnaRtGui:
             recenter_camera=not was_initialized,
         )
 
+        # --- Slice plane
+        ps.remove_all_slice_planes()
+        plane = ps.add_scene_slice_plane()
+        plane.set_pose(
+            (
+                self.cfg.rendering.slice_plane_position
+                if self.cfg.rendering.slice_plane_position is not None
+                else (0, 0, self.scene.mi_scene.bbox().center().z)
+            ),
+            self.cfg.rendering.slice_plane_normal,
+        )
+        plane.set_active(
+            self.cfg.rendering.default_slice_plane_enabled
+            and (self.cfg.rendering.mode == RenderingMode.RASTERIZATION)
+        )
+        self.slice_plane = plane
+
+        # --- Example scenario
         if self.cfg.create_example_scenario:
             if not was_initialized:
                 ps.set_camera_view_matrix(
@@ -313,6 +334,14 @@ class SionnaRtGui:
         self.set_rendering_mode(self.cfg.rendering.mode)
         if recenter_camera:
             self.fit_camera_to_scene()
+
+        if (self.cfg.rendering.slice_plane_position is None) and (
+            self.slice_plane is not None
+        ):
+            self.slice_plane.set_pose(
+                (0, 0, self.scene.mi_scene.bbox().center().z),
+                self.cfg.rendering.slice_plane_normal,
+            )
 
     def on_files_dropped(self, files: list[str]):
         for file in files:
@@ -479,6 +508,10 @@ class SionnaRtGui:
     def set_rendering_mode(self, mode: RenderingMode):
         self.cfg.rendering.mode = mode
         is_ray_tracing = self.cfg.rendering.mode == RenderingMode.RAY_TRACING
+
+        if is_ray_tracing and (self.slice_plane is not None):
+            self.slice_plane.set_active(False)
+
         if not is_ray_tracing:
             self.clear_ray_traced_image()
 
@@ -779,6 +812,17 @@ class SionnaRtGui:
 
     # ------------------------
 
+    def set_slice_plane_active(self, active: bool):
+        if self.slice_plane is None:
+            return
+        self.slice_plane.set_active(active)
+
+        if active and self.cfg.rendering.mode == RenderingMode.RAY_TRACING:
+            # Switch to rasterization mode when activating the slice plane.
+            self.set_rendering_mode(RenderingMode.RASTERIZATION)
+
+    # ------------------------
+
     def process_inputs(self):
         imgui_io = psim.GetIO()
         allow_click = not imgui_io.WantCaptureMouse
@@ -788,6 +832,9 @@ class SionnaRtGui:
         ) or psim.IsMouseDragging(psim.ImGuiMouseButton_Right)
         has_left_release = allow_click and psim.IsMouseReleased(
             psim.ImGuiMouseButton_Left
+        )
+        has_middle_drag = allow_click and psim.IsMouseDragging(
+            psim.ImGuiMouseButton_Middle
         )
         has_right_click = allow_click and psim.IsMouseClicked(
             psim.ImGuiMouseButton_Right
@@ -879,6 +926,21 @@ class SionnaRtGui:
                 else:
                     # Compute and show the radio map
                     self.set_radio_map(self.compute_radio_map(), show=True)
+
+        if self.slice_plane is not None:
+            # S: toggle slice plane
+            if psim.IsKeyPressed(psim.ImGuiKey(ps.get_key_code("S")), repeat=False):
+                self.set_slice_plane_active(not self.slice_plane.get_active())
+
+            # Alt + left click drag: move slice plane along its normal.
+            # TODO: avoid using middle click, since it's not easy to do on trackpads.
+            if self.slice_plane.get_active() and has_middle_drag:
+                center = np.array(self.slice_plane.get_center().as_tuple())
+                normal = np.array(self.slice_plane.get_normal().as_tuple())
+                self.slice_plane.set_pose(
+                    center + 0.3 * self.ui_scale * imgui_io.MouseDelta[1] * normal,
+                    normal,
+                )
 
         # Tab: toggle show GUI (ours)
         if not has_active_item and psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
@@ -1282,6 +1344,29 @@ class SionnaRtGui:
                 ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
 
             psim.Spacing()
+
+            if self.slice_plane is not None:
+                psim.SeparatorText("Slice plane")
+                changed, plane_active = psim.Checkbox(
+                    "Active", self.slice_plane.get_active()
+                )
+                if changed:
+                    self.set_slice_plane_active(plane_active)
+
+                if plane_active:
+                    psim.SameLine()
+                    changed, draw_plane = psim.Checkbox(
+                        "Show plane", self.slice_plane.get_draw_plane()
+                    )
+                    if changed:
+                        self.slice_plane.set_draw_plane(draw_plane)
+
+                    psim.SameLine()
+                    changed, gizmo_active = psim.Checkbox(
+                        "Show gizmo", self.slice_plane.get_draw_widget()
+                    )
+                    if changed:
+                        self.slice_plane.set_draw_widget(gizmo_active)
 
         psim.End()  # End main Sionna RT window
 

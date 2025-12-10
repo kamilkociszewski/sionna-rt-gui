@@ -25,6 +25,8 @@ NVIDIA_GREEN = (0.4627, 0.7255, 0.0, 1.0)
 NVIDIA_GREEN_DARK = tuple(0.95 * c for c in NVIDIA_GREEN)
 NVIDIA_GREEN_DARKER = tuple(0.9 * c for c in NVIDIA_GREEN)
 
+# TODO: use a simpler name once Polyscope allows naming from Python.
+DEFAULT_SLICE_PLANE_NAME = "Scene Slice Plane 0"
 
 # ------------------------
 
@@ -186,6 +188,12 @@ class RenderingConfig:
     envmap_factor: float = 1.0
     # Rotation of the environment map along the vertical axis, in degrees.
     envmap_rotation_deg: float = -60
+
+    slice_plane_normal: tuple[float, float, float] = (0, 0, -1)
+    # If None, the plane will be placed at the z-center of the scene bounding box.
+    slice_plane_position: tuple[float, float, float] | None = None
+    # default_slice_plane_enabled: bool = False
+    default_slice_plane_enabled: bool = True
 
     @property
     def rendering_resolution(self) -> tuple[int, int]:

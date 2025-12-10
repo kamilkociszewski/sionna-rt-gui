@@ -16,6 +16,7 @@ from polyscope import imgui as psim
 from sionna import rt
 from sionna.rt.utils.render import scene_scale
 
+from .config import DEFAULT_SLICE_PLANE_NAME
 from .sionna_utils import set_or_update_radio_devices_polyscope
 
 
@@ -209,6 +210,7 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
             transparency=0.7,
         )
         struct.set_radius(display_radius, relative=False)
+        struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
 
 
 def animation_tick(gui: "SionnaRtGui", time_delta: float, force: bool = False):

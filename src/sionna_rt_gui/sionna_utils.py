@@ -14,7 +14,7 @@ from sionna.rt.utils.geometry import rotation_matrix
 from sionna.rt.utils.render import scene_scale
 
 from . import SCENES_DIR
-from .config import RadioMapConfig
+from .config import RadioMapConfig, DEFAULT_SLICE_PLANE_NAME
 from .ps_utils import supports_direct_update_from_device
 from .rm_utils import radio_map_texture
 
@@ -73,6 +73,7 @@ def add_scene_to_polyscope(scene: rt.Scene, ps_groups: dict[str, ps.Group]):
             mesh.id(), vertices, faces, color=color, material=ps_mat
         )
         struct.add_to_group(ps_groups["scene"])
+        struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, False)
 
 
 def set_or_update_radio_devices_polyscope(
@@ -108,6 +109,7 @@ def set_or_update_radio_devices_polyscope(
         )
         struct.set_radius(display_radius, relative=False)
         struct.add_to_group(gui.ps_groups["rd"])
+        struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
 
     # Update orientations
     rd_orientations = np.array(
@@ -307,6 +309,7 @@ def get_or_add_planar_radio_map_mesh(
     # Add plane mesh to Polyscope
     struct = ps.register_surface_mesh(name, vertices=vertices, faces=faces)
     struct.add_to_group(ps_groups["radio_maps"])
+    struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
 
     # UV map
     param_vals = np.stack(
@@ -355,6 +358,7 @@ def add_paths_to_polyscope(
     )
     struct.set_transparency(0.6)
     struct.add_to_group(ps_groups["paths"])
+    struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
 
 
 def get_normal_for_path(

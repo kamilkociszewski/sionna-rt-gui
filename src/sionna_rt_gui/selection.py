@@ -15,6 +15,7 @@ from sionna import rt
 from sionna.rt.utils.geometry import rotation_matrix
 
 from .animation import trajectory_gui
+from .config import DEFAULT_SLICE_PLANE_NAME
 from .sionna_utils import set_or_update_radio_devices_polyscope
 
 
@@ -127,6 +128,7 @@ def selection_gui(
                     "Gizmo", rd.position.numpy().T, enabled=False
                 )
                 struct.set_transform_gizmo_enabled(True)
+                struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
             else:
                 struct = ps.get_point_cloud("Gizmo")
 
