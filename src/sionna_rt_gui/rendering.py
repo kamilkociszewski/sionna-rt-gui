@@ -27,7 +27,6 @@ def setup_scene_for_rendering(
         "_rgb" in mi.variant()
     ), "This function is supposed to be called with an RGB variant."
 
-    # TODO: adapt if the window is resized
     render_res = cfg.rendering_resolution
     fov_y_deg = ps.get_view_camera_parameters().get_fov_vertical_deg()
     sensor = mi.load_dict(

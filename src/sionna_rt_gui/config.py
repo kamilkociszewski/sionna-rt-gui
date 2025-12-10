@@ -167,8 +167,10 @@ assert len(RENDERING_MODE_NAMES) == len(RenderingMode)
 @dataclass(kw_only=True)
 class RenderingConfig:
     mode: RenderingMode = RenderingMode.RAY_TRACING
-    # Full resolution of the window
+    # Full resolution of the window at startup, not accounting for any DPI scaling.
     default_resolution: tuple[int, int] = (1920, 1080)
+    # Current full resolution of the window, not accounting for any DPI scaling.
+    current_resolution: tuple[int, int] = default_resolution
     # Relative resolution for ray traced rendering
     relative_resolution: float = 0.5
     spp_per_frame: int = 16
@@ -187,9 +189,13 @@ class RenderingConfig:
 
     @property
     def rendering_resolution(self) -> tuple[int, int]:
+        """
+        Resolution used for ray-traced rendering, accounting for `relative_resolution`
+        but not any DPI scaling.
+        """
         return (
-            int(self.default_resolution[0] * self.relative_resolution),
-            int(self.default_resolution[1] * self.relative_resolution),
+            int(self.current_resolution[0] * self.relative_resolution),
+            int(self.current_resolution[1] * self.relative_resolution),
         )
 
 

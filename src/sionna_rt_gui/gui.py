@@ -119,11 +119,6 @@ class SionnaRtGui:
         self.rendering_accumulated_samples: int = 0
         self.reset_accumulation_requested: bool = False
         self.denoiser: mi.OptixDenoiser | None = None
-        if "cuda" in mi.variant():
-            self.set_use_denoiser(self.cfg.rendering.use_denoiser)
-        else:
-            # If there is no CUDA-compatible GPU, switch to rasterization (cheaper).
-            self.cfg.rendering.mode = RenderingMode.RASTERIZATION
 
         # --- Animation state
         self.animation_config: AnimationConfig = AnimationConfig()
@@ -160,8 +155,7 @@ class SionnaRtGui:
         ps.set_build_default_gui_panels(self.cfg.show_polyscope_gui)
         ps.set_background_color(self.cfg.background_color)
         ps.set_ground_plane_mode("none")
-        # TODO: support window resizing.
-        ps.set_window_resizable(False)
+        ps.set_window_resizable(True)
         ps.set_give_focus_on_show(True)
         ps.set_transparency_mode("pretty")
         ps.set_files_dropped_callback(self.on_files_dropped)
@@ -181,9 +175,25 @@ class SionnaRtGui:
             self.cfg.rendering.default_resolution[0] * self.ui_scale,
             self.cfg.rendering.default_resolution[1] * self.ui_scale,
         )
+        # Used to track window size changes. Includes DPI scaling.
+        self.previous_window_resolution: tuple[int, int] = ps.get_window_size()
+        # Note that our `set_window_size()` call may not succeed, e.g. if the window is
+        # maximized. We adopt the effective resolution to make sure that we rendering with
+        # the right aspect ratio, etc.
+        self.cfg.rendering.current_resolution = tuple(
+            v // self.ui_scale for v in self.previous_window_resolution
+        )
+        # Enable denoiser if requested.
+        if "cuda" in mi.variant():
+            self.set_use_denoiser(self.cfg.rendering.use_denoiser)
+        else:
+            # If there is no CUDA-compatible GPU, switch to rasterization (cheaper).
+            self.cfg.rendering.mode = RenderingMode.RASTERIZATION
+
+        # Used to throttle window size change handling. Set to None if no change is pending.
+        self.last_window_size_changed_time: float | None = None
 
         # TODO: add slice plane controls (Polyscope has built-in support)
-        # TODO: add scene drag & drop support (load the dropped XML file)
 
         # Load scene
         # TODO: preserve currently-selected scene across reloads
@@ -364,6 +374,19 @@ class SionnaRtGui:
 
         self.process_inputs()
 
+        # --- Resolution changes
+        current_window_resolution = ps.get_window_size()
+        now = time.time()
+        if current_window_resolution != self.previous_window_resolution:
+            self.last_window_size_changed_time = now
+            self.previous_window_resolution = current_window_resolution
+        if (self.last_window_size_changed_time is not None) and (
+            now - self.last_window_size_changed_time > 0.3
+        ):
+            self.clear_ray_traced_image()
+            self.set_rendering_resolution(current_window_resolution)
+            self.last_window_size_changed_time = None
+
         # --- Rendering
         if self.cfg.rendering.mode == RenderingMode.RAY_TRACING:
             camera_changed = self.reset_accumulation_requested or not np.allclose(
@@ -497,6 +520,17 @@ class SionnaRtGui:
                 color_values=np.empty((1, 1, 4)),
                 enabled=False,
             )
+
+    def set_rendering_resolution(self, window_resolution: tuple[int, int]):
+        self.cfg.rendering.current_resolution = tuple(
+            v // self.ui_scale for v in window_resolution
+        )
+        print(
+            f"Adopted new resolution: {self.cfg.rendering.current_resolution}, {window_resolution=}, {self.ui_scale=}"
+        )
+        self.clear_ray_traced_image()
+        # Re-create denoiser for the new resolution, if appropriate
+        self.set_use_denoiser(self.cfg.rendering.use_denoiser)
 
     # ------------------------
 
