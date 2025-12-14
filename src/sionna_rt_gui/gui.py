@@ -934,8 +934,8 @@ class SionnaRtGui:
             # Alt + left click drag: move slice plane along its normal.
             # TODO: avoid using middle click, since it's not easy to do on trackpads.
             if self.slice_plane.get_active() and has_middle_drag:
-                center = np.array(self.slice_plane.get_center().as_tuple())
-                normal = np.array(self.slice_plane.get_normal().as_tuple())
+                center = self.slice_plane.get_center()
+                normal = self.slice_plane.get_normal()
                 self.slice_plane.set_pose(
                     center + 0.3 * self.ui_scale * imgui_io.MouseDelta[1] * normal,
                     normal,
