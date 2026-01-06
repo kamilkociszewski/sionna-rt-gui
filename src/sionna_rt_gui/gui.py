@@ -230,8 +230,15 @@ class SionnaRtGui:
         self.slice_plane = plane
 
         # --- Example scenario
+        self.create_example_scenario(
+            set_camera=not was_initialized, add_radio_map=False
+        )
+
+    def create_example_scenario(
+        self, set_camera: bool = True, add_radio_map: bool = True
+    ):
         if self.cfg.create_example_scenario:
-            if not was_initialized:
+            if set_camera:
                 ps.set_camera_view_matrix(
                     np.array(
                         [
@@ -275,7 +282,7 @@ class SionnaRtGui:
             self.animation_config.playing = True
             self.animation_config.speed_multiplier = 10.0
 
-            if self.cfg.radio_map.auto_update:
+            if add_radio_map:
                 self.set_radio_map(self.compute_radio_map(), show=True)
             if self.cfg.paths.auto_update:
                 self.update_paths(show=True)
