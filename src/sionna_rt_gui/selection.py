@@ -81,7 +81,7 @@ def selection_gui(
         pressed_del = not psim.IsAnyItemActive() and psim.IsKeyPressed(
             psim.ImGuiKey_Delete, repeat=False
         )
-        if psim.Button(f"Remove", (bw, 0)) or pressed_del:
+        if psim.Button("Remove", (bw, 0)) or pressed_del:
             gui.remove_object(selected_object, selected_type)
             rd_update_needed = True
             gui.clear_selection()
@@ -127,7 +127,9 @@ def selection_gui(
                 struct = ps.register_point_cloud(
                     "Gizmo", rd.position.numpy().T, enabled=False
                 )
-                struct.set_transform_gizmo_enabled(True)
+                gizmo = struct.get_transformation_gizmo()
+                gizmo.set_enabled(True)
+                gizmo.set_allow_scaling(False)
                 struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
             else:
                 struct = ps.get_point_cloud("Gizmo")
@@ -135,20 +137,9 @@ def selection_gui(
             to_world = struct.get_transform()
 
             # Gizmo moved since the last frame
-            # TODO: scaling: we want the gizmo to be easy to manipulate even in large scenes,
-            # where the camera may be fairly zoomed out.
-            gizmo_scale = GIZMO_SCALE / ps.get_length_scale()
             if (gui.prev_gizmo_to_world is not None) and not np.allclose(
                 gui.prev_gizmo_to_world, to_world
             ):
-                # Remove scaling
-                to_world[:3, :3] = (
-                    gizmo_scale
-                    * to_world[:3, :3]
-                    / np.linalg.norm(to_world[:3, :3], axis=0)
-                )
-                struct.set_transform(to_world)
-
                 # Apply transform to the selected object
                 rd.position = mi.Point3f(to_world[:3, -1])
                 target = to_world[:3, -1] + (
@@ -163,9 +154,7 @@ def selection_gui(
             else:
                 # Reset position & orientation of gizmo to match the selected object
                 to_world = np.eye(4)
-                to_world[:3, :3] = (
-                    gizmo_scale * rotation_matrix(rd.orientation).numpy()[..., 0]
-                )
+                to_world[:3, :3] = rotation_matrix(rd.orientation).numpy()[..., 0]
                 to_world[:3, -1] = rd.position.numpy().squeeze()
                 struct.set_transform(to_world)
 
