@@ -1031,7 +1031,7 @@ class SionnaRtGui:
             psim.SetCursorPosX(0)
             psim.SetCursorPosY(0)
             psim.Image(
-                self.rm_colorbar_texture_id,
+                psim.ImTextureRef(self.rm_colorbar_texture_id),
                 (self.rm_colorbar.shape[1], self.rm_colorbar.shape[0]),
             )
             psim.End()
@@ -1381,7 +1381,7 @@ class SionnaRtGui:
     ) -> bool:
         any_changed = False
 
-        psim.Columns(2, border=False)
+        psim.Columns(2, borders=False)
         psim.SetColumnWidth(0, 165 * self.ui_scale)
 
         changed, cfg.los = psim.Checkbox("Line of sight" + suffix, cfg.los)
