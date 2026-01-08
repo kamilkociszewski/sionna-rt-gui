@@ -465,7 +465,7 @@ class SionnaRtGui:
                 self.rendering_accumulated_samples += self.cfg.rendering.spp_per_frame
 
                 if self.denoiser is not None:
-                    to_sensor = mi.ScalarTransform4f(ps.get_camera_view_matrix())
+                    to_sensor = self.render_cache["sensor"].world_transform().inverse()
                     self.ray_traced_img = self.denoiser(
                         self.ray_traced_img,
                         albedo=aovs[1],
@@ -559,9 +559,6 @@ class SionnaRtGui:
     def set_rendering_resolution(self, window_resolution: tuple[int, int]):
         self.cfg.rendering.current_resolution = tuple(
             v // self.ui_scale for v in window_resolution
-        )
-        print(
-            f"Adopted new resolution: {self.cfg.rendering.current_resolution}, {window_resolution=}, {self.ui_scale=}"
         )
         self.clear_ray_traced_image()
         # Re-create denoiser for the new resolution, if appropriate
