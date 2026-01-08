@@ -175,7 +175,7 @@ class RenderingConfig:
     current_resolution: tuple[int, int] = default_resolution
     # Relative resolution for ray traced rendering
     relative_resolution: float = 0.5
-    spp_per_frame: int = 16
+    spp_per_frame: int = 8
     max_accumulated_spp: int = 256
 
     # Use the OptiX denoiser (CUDA variant only)
