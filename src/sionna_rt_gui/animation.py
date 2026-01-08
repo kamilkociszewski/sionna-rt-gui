@@ -202,8 +202,8 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
             "Trajectory",
             traj.points,
             edges="line",
-            enabled=False,
-            color=(0.15, 0.15, 0.15),
+            enabled=True,
+            color=(0.35, 0.15, 0.25),
             transparency=0.7,
         )
         struct.set_radius(display_radius, relative=False)
