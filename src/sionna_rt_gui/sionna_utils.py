@@ -334,6 +334,8 @@ def add_paths_to_polyscope(
 
     result = rt.render.paths_to_segments(paths)
     if not result:
+        if ps.has_curve_network("paths"):
+            ps.remove_curve_network("paths")
         return
 
     starts, ends, colors = result
