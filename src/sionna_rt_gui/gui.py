@@ -73,7 +73,7 @@ HELP_WINDOW_TABLES = {
     },
     "Slice plane": {
         "S": "Toggle slice plane visibility (not supported in ray-traced rendering mode)",
-        "Middle click drag": "Move slice plane along its normal",
+        "Alt + left click drag": "Move slice plane along its normal",
     },
 }
 
@@ -840,9 +840,6 @@ class SionnaRtGui:
         has_left_release = allow_click and psim.IsMouseReleased(
             psim.ImGuiMouseButton_Left
         )
-        has_middle_drag = allow_click and psim.IsMouseDragging(
-            psim.ImGuiMouseButton_Middle
-        )
         has_right_click = allow_click and psim.IsMouseClicked(
             psim.ImGuiMouseButton_Right
         )
@@ -940,13 +937,16 @@ class SionnaRtGui:
 
             # Alt + left click drag: move slice plane along its normal.
             # TODO: avoid using middle click, since it's not easy to do on trackpads.
-            if self.slice_plane.get_active() and has_middle_drag:
+            if self.slice_plane.get_active() and imgui_io.KeyAlt and has_mouse_drag:
+                ps.set_do_default_mouse_interaction(False)
                 center = self.slice_plane.get_center()
                 normal = self.slice_plane.get_normal()
                 self.slice_plane.set_pose(
                     center + 0.3 * self.ui_scale * imgui_io.MouseDelta[1] * normal,
                     normal,
                 )
+            else:
+                ps.set_do_default_mouse_interaction(True)
 
         # Tab: toggle show GUI (ours)
         if not has_active_item and psim.IsKeyPressed(psim.ImGuiKey_Tab, repeat=False):
