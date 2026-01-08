@@ -76,9 +76,6 @@ class Trajectory:
         t = (safe_dist - start_dist) / (end_dist - start_dist)
 
         direction = self.points[end_idx] - self.points[start_idx]
-        if self.backward:
-            direction = -direction
-
         pos = self.points[start_idx] + t * direction
         return pos, direction / np.linalg.norm(direction)
 
