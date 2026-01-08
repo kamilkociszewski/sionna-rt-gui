@@ -40,26 +40,22 @@ class DrColormap:
         self.idx_over = color_map._i_over
 
     def __call__(self, value: mi.TensorXf) -> mi.TensorXf:
-        if False:
-            result_np = self.color_map(value.numpy())
-            return mi.TensorXf(result_np)
-        else:
-            sh = value.shape
-            value = value.array
-            is_under = value < 0.0
-            is_over = value >= 1.0
-            quantitized = dr.select(
-                is_under,
-                self.idx_under,
-                dr.select(is_over, self.idx_over, mi.UInt32(value * self.N)),
-            )
-            # Note: indices of out-of-range values are mapped to valid indices, so we do want
-            # to gather even those entries.
-            colors = dr.gather(mi.Vector4f, self.lut, quantitized)
-            return mi.TensorXf(
-                dr.ravel(colors),
-                shape=(*sh, 4),
-            )
+        sh = value.shape
+        value = value.array
+        is_under = value < 0.0
+        is_over = value >= 1.0
+        quantized = dr.select(
+            is_under,
+            self.idx_under,
+            dr.select(is_over, self.idx_over, mi.UInt32(value * self.N)),
+        )
+        # Note: indices of out-of-range values are mapped to valid indices, so we do want
+        # to gather even those entries.
+        colors = dr.gather(mi.Vector4f, self.lut, quantized)
+        return mi.TensorXf(
+            dr.ravel(colors),
+            shape=(*sh, 4),
+        )
 
 
 def radio_map_texture(

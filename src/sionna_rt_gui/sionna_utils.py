@@ -175,6 +175,7 @@ def add_radio_map_to_polyscope(
             has_buffer = False
 
         # Prepare color-mapped radio map (directly on device)
+        dr.eval(radio_map.path_gain)  # Note: important to avoid kernel misses.
         rm_values = dr.max(radio_map.path_gain, axis=0)
         texture, alpha = radio_map_texture(
             rm_values,
