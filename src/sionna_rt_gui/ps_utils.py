@@ -46,10 +46,8 @@ def get_array_size_bytes(arr: dr.ArrayBase) -> int:
 
 
 def memcpy_2d_to_array_async(dst_ptr, src_ptr, width, height):
-    # TODO: not sure why this is needed. Polyscope implementation might have a bug.
-    src_pitch = (width // 12) * 4 * 4
     return dr.cuda.memcpy_2d_to_array_async(
-        dst_ptr, src_ptr, src_pitch=src_pitch, height=height, from_host=False
+        dst_ptr, src_ptr, src_pitch=width, height=height, from_host=False
     )
 
 

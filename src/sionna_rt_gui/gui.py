@@ -26,7 +26,11 @@ from .config import (
     RENDERING_MODE_NAMES,
     NVIDIA_GREEN,
 )
-from .rendering import render_scene, set_envmap_rotation
+from .rendering import (
+    render_scene,
+    set_envmap_rotation,
+    add_or_update_ray_traced_image_quantity,
+)
 from .rm_utils import radio_map_colorbar_to_image
 from .ps_utils import (
     set_custom_imgui_style,
@@ -469,15 +473,9 @@ class SionnaRtGui:
                         to_sensor=to_sensor,
                     )
 
-                # TODO: setup direct buffer write with GL interop, etc
-                ps.add_raw_color_render_image_quantity(
-                    "ray_traced_img",
-                    depth_values=self.ray_traced_depth.numpy(),
-                    color_values=self.ray_traced_img.numpy(),
-                    enabled=True,
-                    image_origin="upper_left",
+                add_or_update_ray_traced_image_quantity(
+                    self.ray_traced_img, self.ray_traced_depth
                 )
-                ps.request_redraw()
 
         # --- Automatic refinement of the radio map
         if self.radio_map is not None:
@@ -548,21 +546,15 @@ class SionnaRtGui:
             self.ray_traced_img *= 0
 
     def clear_ray_traced_image(self):
-        had_image = self.ray_traced_img is not None
+        import polyscope_bindings as psb
+
         self.render_cache = None
         self.ray_traced_img = None
         self.ray_traced_depth = None
         self.rendering_accumulated_samples = 0
-
-        # TODO: more robust way to get this info from Polyscope
-        if had_image:
-            # TODO: proper way to remove / disable the render quantity in Polyscope.
-            ps.add_raw_color_alpha_render_image_quantity(
-                "ray_traced_img",
-                depth_values=np.empty((1, 1)),
-                color_values=np.empty((1, 1, 4)),
-                enabled=False,
-            )
+        psb.get_global_floating_quantity_structure().remove_quantity(
+            "ray_traced_img", errorIfAbsent=False
+        )
 
     def set_rendering_resolution(self, window_resolution: tuple[int, int]):
         self.cfg.rendering.current_resolution = tuple(

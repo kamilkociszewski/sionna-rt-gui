@@ -10,10 +10,12 @@ import drjit as dr
 import mitsuba as mi
 import numpy as np
 import polyscope as ps
+import polyscope_bindings as psb
 from sionna import rt
 from sionna.rt.renderer import visual_scene_from_wireless_scene
 
 from .config import RenderingConfig, RenderingMode
+from .ps_utils import supports_direct_update_from_device
 
 
 def setup_scene_for_rendering(
@@ -261,3 +263,35 @@ def set_envmap_rotation(
     props["emitter.to_world"] = mi.ScalarTransform4f.rotate(axis=axis, angle=angle_deg)
     props.update()
     return True
+
+
+def add_or_update_ray_traced_image_quantity(
+    ray_traced_img: mi.TensorXf, ray_traced_depth: mi.TensorXf
+) -> bool:
+    exists, _ = psb.get_global_floating_quantity_structure().has_quantity_buffer_type(
+        "ray_traced_img", "colors"
+    )
+
+    # TODO: we shouldn't need to add an alpha channel that we don't use :(
+    ray_traced_img = dr.concat(
+        [ray_traced_img, dr.ones_like(ray_traced_img[..., :1])], axis=-1
+    )
+
+    if supports_direct_update_from_device() and exists:
+        ps.get_quantity_buffer("ray_traced_img", "colors").update_data_from_device(
+            ray_traced_img
+        )
+        ps.get_quantity_buffer("ray_traced_img", "depths").update_data_from_device(
+            ray_traced_depth
+        )
+    else:
+        ps.add_raw_color_alpha_render_image_quantity(
+            "ray_traced_img",
+            depth_values=ray_traced_depth.numpy(),
+            color_values=ray_traced_img.numpy(),
+            enabled=True,
+            image_origin="upper_left",
+        )
+
+    ps.request_redraw()
+    return exists
