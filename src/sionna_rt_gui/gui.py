@@ -732,7 +732,12 @@ class SionnaRtGui:
             self,
         )
 
-        if allow_auto_update and self.cfg.radio_map.auto_update and is_transmitter:
+        if (
+            allow_auto_update
+            and self.cfg.radio_map.auto_update
+            and is_transmitter
+            and (self.radio_map is not None)
+        ):
             self.set_radio_map(self.compute_radio_map(), show=True)
         if allow_auto_update and self.cfg.paths.auto_update:
             self.update_paths(show=True)
