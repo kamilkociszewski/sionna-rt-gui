@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 import os
+import sys
 import time
 
 import drjit as dr
@@ -47,21 +48,21 @@ from .sionna_utils import (
 )
 from .selection import SelectionType, selection_gui
 
-
+CTRL_OR_CMD = "Cmd" if sys.platform == "darwin" else "Ctrl"
 HELP_WINDOW_TABLES = {
     "Camera controls": {
         "Left click + drag": "Camera rotation",
         "Right click + drag": "Camera panning",
         "Shift + left click + drag": "Camera panning",
         "Mouse scroll": "Camera zoom",
-        "Ctrl + shift + left click + drag": "Continuous camera zoom",
+        f"{CTRL_OR_CMD} + shift + left click + drag": "Continuous camera zoom",
         "R": "Reset camera to initial position",
         "F": "Fit scene to camera",
     },
     "Mouse bindings": {
         "Left click": "Select a radio device",
-        "Ctrl + left click": "Add transmitter",
-        "Ctrl + right click": "Add receiver",
+        f"{CTRL_OR_CMD} + left click": "Add transmitter",
+        f"{CTRL_OR_CMD} + right click": "Add receiver",
     },
     "Key bindings": {
         "H / ?": "Show this help window",
@@ -73,7 +74,7 @@ HELP_WINDOW_TABLES = {
         "Esc": "Close help window or de-select current object",
         "Del (with item selected)": "Delete radio device",
         "Shift + R": "Reload application",
-        "Ctrl + Q": "Exit",
+        f"{CTRL_OR_CMD} + Q": "Exit",
     },
     "Slice plane": {
         "S": "Toggle slice plane visibility (not supported in ray-traced rendering mode)",
