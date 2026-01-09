@@ -2,6 +2,6 @@ black
 matplotlib
 numpy
 omegaconf
-sionna-rt==1.2.0
+sionna-rt==1.2.1
 polyscope
 pylint
