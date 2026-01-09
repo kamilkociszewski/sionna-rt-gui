@@ -56,7 +56,12 @@ def selection_gui(
     )
     psim.SetNextWindowPos(window_pos, psim.ImGuiCond_FirstUseEver)
 
-    psim.Begin("Selection##sionna", open=True)
+    _, keep_selection = psim.Begin("Selection##sionna", open=True)
+
+    if not keep_selection:
+        psim.End()
+        gui.clear_selection()
+        return
 
     rd_update_needed = False
     is_transmitter = selected_type == SelectionType.Transmitter
