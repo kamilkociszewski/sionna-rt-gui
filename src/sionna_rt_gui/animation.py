@@ -170,11 +170,15 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
         traj.enabled = False
         traj.add_point(object.position.numpy())
 
-    psim.SameLine()
-    if psim.Button("Clear"):
-        traj.clear()
+    n_points = len(traj)
+    has_points = n_points > 0
+    if has_points:
+        psim.SameLine()
+        if psim.Button(
+            f"Clear ({len(traj)} point{'s' if n_points > 1 else ''})##trajectory"
+        ):
+            traj.clear()
 
-    has_points = len(traj) > 0
     psim.BeginDisabled(not has_points)
     _, traj.enabled = psim.Checkbox("Enabled##trajectory", traj.enabled)
 

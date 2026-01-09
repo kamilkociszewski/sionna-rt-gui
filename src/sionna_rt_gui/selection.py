@@ -45,7 +45,7 @@ def selection_gui(
 
     # Place window in the top-right corner of the screen
     window_resolution = ps.get_window_size()
-    w, h = 375, 460
+    w, h = 375, 480
     psim.SetNextWindowSize(
         (w * gui.ui_scale, h * gui.ui_scale), psim.ImGuiCond_FirstUseEver
     )
