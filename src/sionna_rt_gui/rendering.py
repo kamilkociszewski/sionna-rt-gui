@@ -63,11 +63,15 @@ def setup_scene_for_rendering(
         #  exclude_mesh_ids: set[str] = None
     )
     # Envmap rotation
+    envmap_base_transform = None
     if "emitter" in visual_scene_dict:
         emitter = visual_scene_dict["emitter"]
-        emitter["to_world"] = mi.ScalarTransform4f.rotate(
-            axis=(0, 0, 1), angle=cfg.envmap_rotation_deg
-        ) @ emitter.get("to_world", mi.ScalarTransform4f())
+        envmap_base_transform = emitter.get("to_world", mi.ScalarTransform4f())
+        print(emitter)
+        emitter["to_world"] = (
+            mi.ScalarTransform4f.rotate(axis=(0, 0, 1), angle=cfg.envmap_rotation_deg)
+            @ envmap_base_transform
+        )
 
     visual_scene = mi.load_dict(visual_scene_dict)
 
@@ -122,6 +126,7 @@ def setup_scene_for_rendering(
         "depth_integrator": depth_integrator,
         "render_op": _RenderOp(),
         "radial_factor": radial_factor,
+        "envmap_base_transform": envmap_base_transform,
     }
 
 
@@ -260,7 +265,10 @@ def set_envmap_rotation(
     if "emitter.to_world" not in props:
         return False
 
-    props["emitter.to_world"] = mi.ScalarTransform4f.rotate(axis=axis, angle=angle_deg)
+    props["emitter.to_world"] = (
+        mi.ScalarTransform4f.rotate(axis=axis, angle=angle_deg)
+        @ cache["envmap_base_transform"]
+    )
     props.update()
     return True
 
