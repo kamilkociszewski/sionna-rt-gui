@@ -459,10 +459,11 @@ class SionnaRtGui:
                         self.rendering_accumulated_samples
                         + self.cfg.rendering.spp_per_frame
                     )
+                    t = dr.opaque(mi.Float32, t)
                     self.ray_traced_img = (1 - t) * self.ray_traced_img + t * new_img
-                    self.ray_traced_depth = (1 - t) * self.ray_traced_depth + t * aovs[
-                        0
-                    ]
+                    # Keep using 1spp depth, it looks better than accumulating.
+                    self.ray_traced_depth = aovs[0]
+
                 self.rendering_accumulated_samples += self.cfg.rendering.spp_per_frame
 
                 if self.denoiser is not None:
@@ -544,7 +545,8 @@ class SionnaRtGui:
     def rendering_reset_accumulation(self):
         self.rendering_accumulated_samples = 0
         if self.ray_traced_img is not None:
-            self.ray_traced_img *= 0
+            self.ray_traced_img[:] = 0
+            self.ray_traced_depth[:] = 0
 
     def clear_ray_traced_image(self):
         import polyscope_bindings as psb
