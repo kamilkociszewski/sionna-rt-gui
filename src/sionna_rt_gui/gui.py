@@ -322,11 +322,12 @@ class SionnaRtGui:
         thickness = self.cfg.radio_material_thickness
         scattering_coefficient = self.cfg.radio_material_scattering_coefficient
         for sh in self.scene.mi_scene.shapes():
-            if isinstance(sh.bsdf(), rt.RadioMaterialBase):
+            bsdf = sh.bsdf()
+            if isinstance(bsdf, rt.RadioMaterialBase):
                 if thickness is not None:
-                    sh.bsdf().thickness = thickness
+                    bsdf.thickness = thickness
                 if scattering_coefficient is not None:
-                    sh.bsdf().scattering_coefficient = scattering_coefficient
+                    bsdf.scattering_coefficient = scattering_coefficient
 
         self.cfg.scene_filename = scene_path
 
@@ -359,7 +360,11 @@ class SionnaRtGui:
         for file in files:
             if file.endswith(".xml"):
                 print(f"[i] Loading dropped XML file: {file}")
-                self.load_scene(file)
+                try:
+                    self.load_scene(file)
+                except Exception as e:
+                    print(f'[!] Failed loading scene "{file}":\n{e}')
+                    continue
                 # Only handle one valid XML file
                 break
 
@@ -410,7 +415,10 @@ class SionnaRtGui:
 
     def tick(self):
         if self.load_scene_requested is not None:
-            self.load_scene(self.load_scene_requested)
+            try:
+                self.load_scene(self.load_scene_requested)
+            except Exception as e:
+                print(f'[!] Failed loading scene "{self.load_scene_requested}":\n{e}')
             self.load_scene_requested = None
 
         self.process_inputs()

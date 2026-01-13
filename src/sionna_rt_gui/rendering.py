@@ -67,7 +67,6 @@ def setup_scene_for_rendering(
     if "emitter" in visual_scene_dict:
         emitter = visual_scene_dict["emitter"]
         envmap_base_transform = emitter.get("to_world", mi.ScalarTransform4f())
-        print(emitter)
         emitter["to_world"] = (
             mi.ScalarTransform4f.rotate(axis=(0, 0, 1), angle=cfg.envmap_rotation_deg)
             @ envmap_base_transform
