@@ -1097,7 +1097,7 @@ class SionnaRtGui:
 
             psim.SameLine()
             psim.BeginDisabled(self.radio_map is None)
-            if psim.Button("Remove"):
+            if psim.Button("Remove##radio_map"):
                 self.clear_radio_map()
             psim.EndDisabled()
 
@@ -1225,6 +1225,12 @@ class SionnaRtGui:
             clicked = psim.Button("Compute paths")
             if clicked:
                 self.update_paths(show=True)
+
+            psim.SameLine()
+            psim.BeginDisabled(self.paths is None)
+            if psim.Button("Remove##paths"):
+                self.clear_paths()
+            psim.EndDisabled()
 
             psim.SameLine()
             _, self.cfg.paths.auto_update = psim.Checkbox(
