@@ -178,6 +178,7 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
             f"Clear ({len(traj)} point{'s' if n_points > 1 else ''})##trajectory"
         ):
             traj.clear()
+            has_points = False
 
     psim.BeginDisabled(not has_points)
     _, traj.enabled = psim.Checkbox("Enabled##trajectory", traj.enabled)
@@ -212,6 +213,8 @@ def trajectory_gui(gui: "SionnaRtGui", object: rt.SceneObject):
         )
         struct.set_radius(display_radius, relative=False)
         struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
+    elif ps.has_curve_network("Trajectory"):
+        ps.remove_curve_network("Trajectory")
 
 
 def animation_tick(gui: "SionnaRtGui", time_delta: float, force: bool = False):
