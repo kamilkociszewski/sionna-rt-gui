@@ -837,6 +837,11 @@ class SionnaRtGui:
 
     def process_inputs(self):
         imgui_io = psim.GetIO()
+        if imgui_io.WantCaptureKeyboard:
+            # If the user is e.g. typing in a text field, don't process
+            # keyboard or mouse inputs.
+            return
+
         allow_click = not imgui_io.WantCaptureMouse
         has_left_click = allow_click and psim.IsMouseClicked(psim.ImGuiMouseButton_Left)
         has_mouse_drag = psim.IsMouseDragging(
