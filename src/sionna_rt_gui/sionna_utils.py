@@ -364,6 +364,19 @@ def add_paths_to_polyscope(
     struct.set_ignore_slice_plane(DEFAULT_SLICE_PLANE_NAME, True)
 
 
+def get_point_from_camera_center_ray(
+    scene: rt.Scene,
+    camera_to_world: np.ndarray,
+) -> np.ndarray | None:
+
+    ray = mi.Ray3f(camera_to_world[:3, 3], -camera_to_world[:3, 2])
+    si = scene.mi_scene.ray_intersect(ray)
+    if si.is_valid().numpy().item():
+        return si.p.numpy().squeeze()
+
+    return None
+
+
 def get_normal_for_path(
     scene: rt.Scene,
     origin: np.ndarray,

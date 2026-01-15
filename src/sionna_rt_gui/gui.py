@@ -43,6 +43,7 @@ from .sionna_utils import (
     add_radio_map_to_polyscope,
     add_scene_to_polyscope,
     get_built_in_scenes,
+    get_point_from_camera_center_ray,
     get_normal_for_path,
     set_or_update_radio_devices_polyscope,
 )
@@ -54,6 +55,7 @@ HELP_WINDOW_TABLES = {
         "Left click + drag": "Camera rotation",
         "Right click + drag": "Camera panning",
         "Shift + left click + drag": "Camera panning",
+        "Double left click": "Center camera rotation around clicked point",
         "Mouse scroll": "Camera zoom",
         f"{CTRL_OR_CMD} + shift + left click + drag": "Continuous camera zoom",
         "R": "Reset camera to initial position",
@@ -235,62 +237,61 @@ class SionnaRtGui:
         self.slice_plane = plane
 
         # --- Example scenario
-        self.create_example_scenario(
-            set_camera=not was_initialized, add_radio_map=False
-        )
+        if self.cfg.create_example_scenario:
+            self.create_example_scenario(
+                set_camera=not was_initialized, add_radio_map=False
+            )
 
     def create_example_scenario(
         self, set_camera: bool = True, add_radio_map: bool = True
     ):
-        if self.cfg.create_example_scenario:
-            if set_camera:
-                ps.set_camera_view_matrix(
-                    np.array(
-                        [
-                            [
-                                2.0079615e-03,
-                                -9.9999154e-01,
-                                -3.9256822e-08,
-                                4.4776478e00,
-                            ],
-                            [7.8317523e-01, 1.5742097e-03, 6.2179816e-01, 1.1707677e01],
-                            [
-                                -6.2179959e-01,
-                                -1.2489425e-03,
-                                7.8317869e-01,
-                                -2.2836572e02,
-                            ],
-                            [0.0000000e00, 0.0000000e00, 0.0000000e00, 1.0000000e00],
-                        ]
-                    )
-                )
+        if set_camera:
+            self.home_camera_to_world = np.array(
+                [
+                    [
+                        2.0079615e-03,
+                        -9.9999154e-01,
+                        -3.9256822e-08,
+                        4.4776478e00,
+                    ],
+                    [7.8317523e-01, 1.5742097e-03, 6.2179816e-01, 1.1707677e01],
+                    [
+                        -6.2179959e-01,
+                        -1.2489425e-03,
+                        7.8317869e-01,
+                        -2.2836572e02,
+                    ],
+                    [0.0000000e00, 0.0000000e00, 0.0000000e00, 1.0000000e00],
+                ]
+            )
+            self.move_camera_home()
 
-            # Add some example transmitters
-            for pos in [
-                [-34.0, 13.0, 33.0],
-            ]:
-                self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
+        # Add some example transmitters
+        for pos in [
+            [-34.0, 13.0, 33.0],
+        ]:
+            self.add_radio_device(pos, is_transmitter=True, allow_auto_update=False)
 
-                shifted = [pos[0] + 15, pos[1] - 14, pos[2] - 20]
-                self.add_radio_device(
-                    shifted, is_transmitter=False, allow_auto_update=False
-                )
+            shifted = [pos[0] + 15, pos[1] - 14, pos[2] - 20]
+            self.add_radio_device(
+                shifted, is_transmitter=False, allow_auto_update=False
+            )
 
-            # Example animation
-            p = self.scene.get("rx-0").position.numpy().squeeze()
-            traj = self.animation_config.trajectories["rx-0"]
-            traj.add_point(p - [0, 30, 0])
-            traj.add_point(p)
-            traj.add_point(p + [40, 0, 0])
-            traj.enabled = True
-            traj.distance = 0.0  # Start at the first point
-            self.animation_config.playing = True
-            self.animation_config.speed_multiplier = 10.0
+        # Example animation
+        p = self.scene.get("rx-0").position.numpy().squeeze()
+        traj = self.animation_config.trajectories["rx-0"]
+        traj.add_point(p - [0, 30, 0])
+        traj.add_point(p)
+        traj.add_point(p + [40, 0, 0])
+        traj.enabled = True
+        traj.distance = 0.0  # Start at the first point
+        self.animation_config.playing = True
+        self.animation_config.speed_multiplier = 10.0
 
-            if add_radio_map:
-                self.set_radio_map(self.compute_radio_map(), show=True)
-            if self.cfg.paths.auto_update:
-                self.update_paths(show=True)
+        if add_radio_map:
+            self.set_radio_map(self.compute_radio_map(), show=True)
+        if self.cfg.paths.auto_update:
+            self.update_paths(show=True)
 
     def reset_and_setup_structures(self):
         # Clear Sionna state
@@ -371,10 +372,21 @@ class SionnaRtGui:
     def move_camera_home(self):
         """Move camera to the home view, if any. Otherwise, fits the scene in the camera viewport."""
         if self.home_camera_to_world is not None:
+            # We probably can't rely on ps.pick() since the buffers probably haven't been
+            # updated yet with the new camera pose. So we trace our own ray to get the rotation
+            # point of the turntable navigation.
+            if ps.get_navigation_style() == "turntable":
+                center = get_point_from_camera_center_ray(
+                    self.scene, np.linalg.inv(self.home_camera_to_world)
+                )
+                if center is not None:
+                    ps.set_view_center(center)
+
             ps.set_camera_view_matrix(self.home_camera_to_world)
+
+            ps.request_redraw()
         else:
             self.fit_camera_to_scene()
-        ps.request_redraw()
 
     def fit_camera_to_scene(self):
         """Move the camera to a position where most of the scene is visible."""
@@ -383,9 +395,6 @@ class SionnaRtGui:
 
         center = bbox.center()
         extents = bbox.extents()
-
-        # Center of the turntable navigation
-        ps.set_view_center(center, fly_to=False)
 
         # Calculate the required distance to fit the scene in the vertical FOV
         # We use the larger of height or diagonal extent for safety margin
@@ -409,6 +418,7 @@ class SionnaRtGui:
         ]
         target = [center.x - 0.2 * (center.x - origin[0]), center.y, center.z]
 
+        ps.set_view_center(target)
         ps.look_at(origin, target)
 
     # ------------------------
