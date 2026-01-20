@@ -151,7 +151,7 @@ class PathsConfig:
 
     @property
     def sampling_frequency(self) -> float:
-        return 1.0 / self.bandwidth
+        return self.subcarrier_spacing
 
 
 # ------------------------
