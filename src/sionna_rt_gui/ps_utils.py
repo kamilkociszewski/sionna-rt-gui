@@ -99,57 +99,57 @@ def set_custom_imgui_style():
         style.ScaleAllSizes(ps.get_ui_scale())
 
         # Primary background
-        style.SetColor(psim.ImGuiCol_WindowBg, (0.07, 0.07, 0.09, 1.00))
-        style.SetColor(psim.ImGuiCol_MenuBarBg, (0.12, 0.12, 0.15, 1.00))
+        style.Colors[psim.ImGuiCol_WindowBg] = (0.07, 0.07, 0.09, 1.00)
+        style.Colors[psim.ImGuiCol_MenuBarBg] = (0.12, 0.12, 0.15, 1.00)
 
-        style.SetColor(psim.ImGuiCol_PopupBg, (0.18, 0.18, 0.22, 1.00))
+        style.Colors[psim.ImGuiCol_PopupBg] = (0.18, 0.18, 0.22, 1.00)
 
         # Headers
-        style.SetColor(psim.ImGuiCol_Header, (0.18, 0.18, 0.22, 1.00))
-        style.SetColor(psim.ImGuiCol_HeaderHovered, (0.30, 0.30, 0.40, 1.00))
-        style.SetColor(psim.ImGuiCol_HeaderActive, (0.25, 0.25, 0.35, 1.00))
+        style.Colors[psim.ImGuiCol_Header] = (0.18, 0.18, 0.22, 1.00)
+        style.Colors[psim.ImGuiCol_HeaderHovered] = (0.30, 0.30, 0.40, 1.00)
+        style.Colors[psim.ImGuiCol_HeaderActive] = (0.25, 0.25, 0.35, 1.00)
 
         # Buttons
-        style.SetColor(psim.ImGuiCol_Button, (0.20, 0.22, 0.27, 1.00))
-        style.SetColor(psim.ImGuiCol_ButtonHovered, (0.30, 0.32, 0.40, 1.00))
-        style.SetColor(psim.ImGuiCol_ButtonActive, (0.35, 0.38, 0.50, 1.00))
+        style.Colors[psim.ImGuiCol_Button] = (0.20, 0.22, 0.27, 1.00)
+        style.Colors[psim.ImGuiCol_ButtonHovered] = (0.30, 0.32, 0.40, 1.00)
+        style.Colors[psim.ImGuiCol_ButtonActive] = (0.35, 0.38, 0.50, 1.00)
 
         # Frame BG
-        style.SetColor(psim.ImGuiCol_FrameBg, (0.15, 0.15, 0.18, 1.00))
-        style.SetColor(psim.ImGuiCol_FrameBgHovered, (0.22, 0.22, 0.27, 1.00))
-        style.SetColor(psim.ImGuiCol_FrameBgActive, (0.25, 0.25, 0.30, 1.00))
+        style.Colors[psim.ImGuiCol_FrameBg] = (0.15, 0.15, 0.18, 1.00)
+        style.Colors[psim.ImGuiCol_FrameBgHovered] = (0.22, 0.22, 0.27, 1.00)
+        style.Colors[psim.ImGuiCol_FrameBgActive] = (0.25, 0.25, 0.30, 1.00)
 
         # Tabs
-        style.SetColor(psim.ImGuiCol_Tab, (0.18, 0.18, 0.22, 1.00))
-        style.SetColor(psim.ImGuiCol_TabHovered, (0.35, 0.35, 0.50, 1.00))
-        style.SetColor(psim.ImGuiCol_TabUnfocused, (0.13, 0.13, 0.17, 1.00))
-        style.SetColor(psim.ImGuiCol_TabUnfocusedActive, (0.20, 0.20, 0.25, 1.00))
+        style.Colors[psim.ImGuiCol_Tab] = (0.18, 0.18, 0.22, 1.00)
+        style.Colors[psim.ImGuiCol_TabHovered] = (0.35, 0.35, 0.50, 1.00)
+        style.Colors[psim.ImGuiCol_TabUnfocused] = (0.13, 0.13, 0.17, 1.00)
+        style.Colors[psim.ImGuiCol_TabUnfocusedActive] = (0.20, 0.20, 0.25, 1.00)
 
         # Title
-        style.SetColor(psim.ImGuiCol_TitleBg, (0.12, 0.12, 0.15, 1.00))
-        style.SetColor(psim.ImGuiCol_TitleBgActive, (0.15, 0.15, 0.20, 1.00))
-        style.SetColor(psim.ImGuiCol_TitleBgCollapsed, (0.10, 0.10, 0.12, 1.00))
+        style.Colors[psim.ImGuiCol_TitleBg] = (0.12, 0.12, 0.15, 1.00)
+        style.Colors[psim.ImGuiCol_TitleBgActive] = (0.15, 0.15, 0.20, 1.00)
+        style.Colors[psim.ImGuiCol_TitleBgCollapsed] = (0.10, 0.10, 0.12, 1.00)
 
         # Borders
-        style.SetColor(psim.ImGuiCol_Border, (0.20, 0.20, 0.25, 0.50))
-        style.SetColor(psim.ImGuiCol_BorderShadow, (0.00, 0.00, 0.00, 0.00))
+        style.Colors[psim.ImGuiCol_Border] = (0.20, 0.20, 0.25, 0.50)
+        style.Colors[psim.ImGuiCol_BorderShadow] = (0.00, 0.00, 0.00, 0.00)
 
         # Text
-        style.SetColor(psim.ImGuiCol_Text, (0.90, 0.90, 0.95, 1.00))
-        style.SetColor(psim.ImGuiCol_TextDisabled, (0.50, 0.50, 0.55, 1.00))
+        style.Colors[psim.ImGuiCol_Text] = (0.90, 0.90, 0.95, 1.00)
+        style.Colors[psim.ImGuiCol_TextDisabled] = (0.50, 0.50, 0.55, 1.00)
 
         # Highlights
-        style.SetColor(psim.ImGuiCol_CheckMark, (0.50, 0.70, 1.00, 1.00))
-        style.SetColor(psim.ImGuiCol_SliderGrab, (0.50, 0.70, 1.00, 1.00))
-        style.SetColor(psim.ImGuiCol_SliderGrabActive, (0.60, 0.80, 1.00, 1.00))
-        style.SetColor(psim.ImGuiCol_ResizeGrip, (0.50, 0.70, 1.00, 0.50))
-        style.SetColor(psim.ImGuiCol_ResizeGripHovered, (0.60, 0.80, 1.00, 0.75))
-        style.SetColor(psim.ImGuiCol_ResizeGripActive, (0.70, 0.90, 1.00, 1.00))
+        style.Colors[psim.ImGuiCol_CheckMark] = (0.50, 0.70, 1.00, 1.00)
+        style.Colors[psim.ImGuiCol_SliderGrab] = (0.50, 0.70, 1.00, 1.00)
+        style.Colors[psim.ImGuiCol_SliderGrabActive] = (0.60, 0.80, 1.00, 1.00)
+        style.Colors[psim.ImGuiCol_ResizeGrip] = (0.50, 0.70, 1.00, 0.50)
+        style.Colors[psim.ImGuiCol_ResizeGripHovered] = (0.60, 0.80, 1.00, 0.75)
+        style.Colors[psim.ImGuiCol_ResizeGripActive] = (0.70, 0.90, 1.00, 1.00)
 
         # Scrollbar
-        style.SetColor(psim.ImGuiCol_ScrollbarBg, (0.10, 0.10, 0.12, 1.00))
-        style.SetColor(psim.ImGuiCol_ScrollbarGrab, (0.30, 0.30, 0.35, 1.00))
-        style.SetColor(psim.ImGuiCol_ScrollbarGrabHovered, (0.40, 0.40, 0.50, 1.00))
-        style.SetColor(psim.ImGuiCol_ScrollbarGrabActive, (0.45, 0.45, 0.55, 1.00))
+        style.Colors[psim.ImGuiCol_ScrollbarBg] = (0.10, 0.10, 0.12, 1.00)
+        style.Colors[psim.ImGuiCol_ScrollbarGrab] = (0.30, 0.30, 0.35, 1.00)
+        style.Colors[psim.ImGuiCol_ScrollbarGrabHovered] = (0.40, 0.40, 0.50, 1.00)
+        style.Colors[psim.ImGuiCol_ScrollbarGrabActive] = (0.45, 0.45, 0.55, 1.00)
 
     ps.set_configure_imgui_style_callback(style_cb)

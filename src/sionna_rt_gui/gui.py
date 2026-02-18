@@ -380,7 +380,7 @@ class SionnaRtGui:
                     self.scene, np.linalg.inv(self.home_camera_to_world)
                 )
                 if center is not None:
-                    ps.set_view_center(center)
+                    ps.set_view_center_raw(center)
 
             ps.set_camera_view_matrix(self.home_camera_to_world)
 
@@ -418,7 +418,7 @@ class SionnaRtGui:
         ]
         target = [center.x - 0.2 * (center.x - origin[0]), center.y, center.z]
 
-        ps.set_view_center(target)
+        ps.set_view_center_raw(target)
         ps.look_at(origin, target)
 
     # ------------------------

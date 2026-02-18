@@ -3,5 +3,5 @@ matplotlib
 numpy
 omegaconf
 sionna-rt==1.2.1
-polyscope
+polyscope>=2.6.0,<2.7.0
 pylint
