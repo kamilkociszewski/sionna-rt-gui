@@ -45,7 +45,14 @@ sionna-rt-gui = "scripts.run:main"
 where = ["src", "."]
 
 [tool.setuptools.package-data]
-sionna_rt_gui = ["configs/**/*.yaml", "data/**/*"]
+sionna_rt_gui = [
+    "data/configs/**/*.yaml",
+    "data/envmaps/*.md",
+    "data/envmaps/*.exr",
+    "data/scenes/**/*.xml",
+    "data/scenes/**/*.ply",
+    "data/scenes/**/*.obj",
+]
 
 [tool.pylint.messages_control]
 disable = ["W1203"]
