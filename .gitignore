@@ -27,7 +27,7 @@ overpass/
 *.exr
 *.log
 *.out
-
+build/
 
 # Polyscope / Dear ImGui
 .polyscope.ini
