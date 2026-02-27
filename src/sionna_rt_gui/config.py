@@ -17,7 +17,7 @@ from sionna.rt.antenna_pattern import (
     polarization_registry,
 )
 
-from . import DATA_DIR
+from . import DATA_DIR, CONFIGS_DIR
 
 # ------------------------
 
@@ -278,11 +278,23 @@ def load_config(config_path: str, scene_filename: str | None = None) -> GuiConfi
     except ImportError:
         from yaml import Loader
 
-    with open(config_path, "r") as f:
-        loaded = yaml.load(f, Loader=Loader)
-        # The config file might be empty.
-        if loaded is None:
-            loaded = {}
+    candidates = [
+        config_path,
+        os.path.join(CONFIGS_DIR, config_path),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            with open(candidate, "r") as f:
+                loaded = yaml.load(f, Loader=Loader)
+                # The config file might be empty.
+                if loaded is None:
+                    loaded = {}
+            break
+    else:
+        raise FileNotFoundError(
+            f"Config file not found: {config_path}, tried:\n- "
+            + "\n- ".join(candidates)
+        )
 
     loaded = OmegaConf.create(loaded)
     # Resolve interpolations, if any.
