@@ -3,7 +3,7 @@ Sionna RT GUI
 
 An interactive GUI to simulate and visualize [Sionna RT](https://github.com/NVlabs/sionna-rt) scenes, paths, and radio maps.
 
-![Sionna RT GUI screenshot](data/preview.webp)
+![Sionna RT GUI screenshot](src/sionna_rt_gui/data/preview.webp)
 
 
 Getting started
