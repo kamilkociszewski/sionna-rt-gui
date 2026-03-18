@@ -717,7 +717,7 @@ class SionnaRtGui:
             diffraction=self.cfg.paths.diffraction,
             edge_diffraction=self.cfg.paths.edge_diffraction,
             diffraction_lit_region=self.cfg.paths.diffraction_lit_region,
-            seed=self.frame_i,
+            seed=12345,
         )
 
     # ------------------------
