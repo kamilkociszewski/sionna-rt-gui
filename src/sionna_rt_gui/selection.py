@@ -4,7 +4,7 @@
 #
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 
 import drjit as dr
 import mitsuba as mi
@@ -19,7 +19,7 @@ from .config import DEFAULT_SLICE_PLANE_NAME
 from .sionna_utils import set_or_update_radio_devices_polyscope
 
 
-class SelectionType(StrEnum):
+class SelectionType(Enum):
     Transmitter = "Transmitter"
     Receiver = "Receiver"
     RadioMap = "Radio map"
