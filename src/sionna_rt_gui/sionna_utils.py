@@ -44,11 +44,12 @@ def get_built_in_scenes() -> dict[str, str]:
         if isinstance(var, str) and var.endswith(".xml"):
             result[var_name] = var
 
-    for dir_name in os.listdir(SCENES_DIR):
-        scene_fname = os.path.join(SCENES_DIR, dir_name, f"{dir_name}.xml")
-        if os.path.exists(scene_fname):
-            # Note: this may override a built-in Sionna RT scene.
-            result[dir_name] = scene_fname
+    if os.path.isdir(SCENES_DIR):
+        for dir_name in os.listdir(SCENES_DIR):
+            scene_fname = os.path.join(SCENES_DIR, dir_name, f"{dir_name}.xml")
+            if os.path.exists(scene_fname):
+                # Note: this may override a built-in Sionna RT scene.
+                result[dir_name] = scene_fname
 
     return result
 
