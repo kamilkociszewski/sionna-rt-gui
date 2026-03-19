@@ -11,7 +11,7 @@ SCENES_DIR = os.path.join(DATA_DIR, "scenes")
 CONFIGS_DIR = os.path.join(DATA_DIR, "configs", "sionna_rt_gui")
 DEFAULT_CONFIG_PATH = os.path.join(CONFIGS_DIR, "base.yaml")
 
-__version__ = (0, 1, 0)
+__version__ = (0, 1, 1)
 
 from . import gui
 from .gui import SionnaRtGui
